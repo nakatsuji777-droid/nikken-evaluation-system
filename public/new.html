@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新規評価 | 協力会社評価システム</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="header">
+  <h1>🏗️ 協力会社評価システム <span class="sub">ニッケン建設株式会社</span></h1>
+</header>
+<nav class="nav">
+  <a href="/">ダッシュボード</a>
+  <a href="/new.html">新規評価</a>
+  <a href="/list.html">評価一覧</a>
+  <a href="/analysis.html">分析・グラフ</a>
+  <a href="/master.html">マスタ管理</a>
+  <a href="/settings.html">設定</a>
+</nav>
+
+<div class="container">
+  <h2 class="section-title">
+    <span id="pageTitle">📝 新規評価入力</span>
+    <span id="autoSaveIndicator" class="muted" style="font-size:12px;font-weight:normal"></span>
+  </h2>
+
+  <div id="duplicateAlert"></div>
+
+  <!-- 基本情報 -->
+  <div class="card">
+    <div class="card-header">
+      <span>■ 基本情報</span>
+      <span style="font-size:12px;font-weight:normal" id="statusDisplay"></span>
+    </div>
+    <div class="card-body">
+      <div class="form-row">
+        <label>評価日</label>
+        <input type="date" id="evaluationDate">
+      </div>
+      <div class="form-row">
+        <label>協力会社 <span style="color:red">*</span></label>
+        <div class="input-with-action">
+          <select id="companyId" required></select>
+          <button class="btn small secondary" id="addCompanyBtn" type="button" title="協力会社を新規追加">＋</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>工事 <span style="color:red">*</span></label>
+        <div class="input-with-action">
+          <select id="constructionId" required></select>
+          <button class="btn small secondary" id="addConstructionBtn" type="button" title="工事を新規追加">＋</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>工事種別</label>
+        <div class="input-with-action">
+          <select id="constructionType"></select>
+          <button class="btn small secondary" id="addTypeBtn" type="button" title="工事種別を新規追加">＋</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>工期</label>
+        <input type="text" id="period" placeholder="例：令和7年3月24日 ～ 令和8年3月31日">
+      </div>
+      <div class="form-row">
+        <label>評価者（現場責任者）</label>
+        <select id="evaluator"></select>
+      </div>
+      <div class="form-row">
+        <label>承認者（工事部長）</label>
+        <input type="text" id="approver">
+      </div>
+    </div>
+  </div>
+
+  <!-- 評価項目 -->
+  <div class="card">
+    <div class="card-header">
+      <span>■ 評価項目（5段階評価）</span>
+      <span style="font-size:11px;font-weight:normal;opacity:.8">⌨ キーボード「1〜5」で入力可</span>
+    </div>
+    <div class="card-body">
+      <div class="bulk-score">
+        <span class="bulk-score-label">一括設定：</span>
+        <button type="button" class="btn small secondary" data-bulk="5">全て5</button>
+        <button type="button" class="btn small secondary" data-bulk="4">全て4</button>
+        <button type="button" class="btn small secondary" data-bulk="3">全て3</button>
+        <button type="button" class="btn small danger" data-bulk="0">クリア</button>
+      </div>
+      <div id="evalItems"></div>
+    </div>
+  </div>
+
+  <!-- 自動算出結果 -->
+  <div class="result-box" id="resultBox">
+    <div>
+      <div class="label">合計点</div>
+      <div class="value"><span id="totalScore">―</span><span style="font-size:14px;opacity:.8"> / 35</span></div>
+    </div>
+    <div>
+      <div class="label">平均点</div>
+      <div class="value" id="avgScore">―</div>
+    </div>
+    <div>
+      <div class="label">総合評価</div>
+      <div><span class="rank-circle" id="rankCircle">―</span></div>
+    </div>
+  </div>
+
+  <!-- 総評 -->
+  <div class="card">
+    <div class="card-header"><span>■ 総評（現場責任者コメント）</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <label>良かった点</label>
+        <div class="comment-area">
+          <select class="template-pulldown" data-target="overallGood"><option value="">▼ 定型例から選択</option></select>
+          <textarea id="overallGood" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>改善をお願いしたい点</label>
+        <div class="comment-area">
+          <select class="template-pulldown" data-target="overallImprove"><option value="">▼ 定型例から選択</option></select>
+          <textarea id="overallImprove" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>次回への期待・要望</label>
+        <div class="comment-area">
+          <select class="template-pulldown" data-target="overallExpectation"><option value="">▼ 定型例から選択</option></select>
+          <textarea id="overallExpectation" rows="3"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 返信欄 -->
+  <div class="card">
+    <div class="card-header"><span>■ 返信欄（協力会社様からのご意見）</span></div>
+    <div class="card-body">
+      <textarea id="reply" rows="3" placeholder="協力会社様からのご意見・ご感想をいただいた際に記入"></textarea>
+    </div>
+  </div>
+
+  <!-- ステータス -->
+  <div class="card">
+    <div class="card-header"><span>■ ステータス管理</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <label>現在の状態</label>
+        <select id="status">
+          <option value="下書き">下書き（編集中）</option>
+          <option value="提出済">提出済（評価入力完了）</option>
+          <option value="承認済">承認済（工事部長承認済）</option>
+          <option value="送付済">送付済（協力会社へ送付完了）</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- アクションボタン -->
+  <div class="btn-group" style="margin-top:24px;justify-content:center">
+    <button type="button" class="btn large" id="saveBtn">💾 保存（Ctrl+S）</button>
+    <button type="button" class="btn success" id="excelBtn" disabled>📥 Excel出力</button>
+    <button type="button" class="btn warning" id="emailBtn" disabled>📧 メール作成</button>
+    <button type="button" class="btn secondary" id="printBtn">🖨️ 印刷</button>
+    <a href="/list.html" class="btn secondary">⬅ 一覧へ</a>
+    <button type="button" class="btn danger" id="deleteBtn" style="margin-left:auto;display:none">🗑 削除</button>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let companies = [], constructions = [], constructionTypes = [], users = [], commentTemplates = [];
+let editingId = null;
+let dirty = false;
+let autoSaveTimer = null;
+const DRAFT_KEY = 'evalDraft';
+
+const evalItemsConfig = [
+  { key: 'Budget', no: 1, name: '予算・コスト対応', view: '厳しい予算にも柔軟に対応していただけたか／追加要望にも適切に対応いただけたか', category: 'budget' },
+  { key: 'Quality', no: 2, name: '品質', view: '仕上がりは丁寧で、当社の品質基準を満たしていたか／養生・後始末は適切だったか', category: 'quality' },
+  { key: 'Schedule', no: 3, name: '工程・納期', view: '予定された工程を守って作業を進めていただけたか／遅延時の対応は適切だったか', category: 'schedule' },
+  { key: 'Safety', no: 4, name: '安全管理', view: '安全意識は高く、保護具着用・KY活動など徹底されていたか／ヒヤリハットへの対応は適切だったか', category: 'safety' },
+  { key: 'Communication', no: 5, name: '現場対応・コミュニケーション', view: '他業者・近隣・当社担当者との意思疎通は円滑だったか／報連相は適切に行われたか', category: 'communication' },
+  { key: 'Document', no: 6, name: '書類・報告対応', view: '施工計画書・安全書類・完了報告書など必要書類が期日までに提出されたか', category: 'document' },
+  { key: 'Proposal', no: 7, name: '改善提案・技術力', view: '工事を進める上で有益な提案や、高い技術力の発揮があったか（プラス評価）', category: 'proposal' },
+];
+
+async function init() {
+  await reloadMasters();
+  document.getElementById('evaluationDate').value = todayStr();
+  buildEvalItems();
+  setupTemplatePulldown('overallGood', 'good');
+  setupTemplatePulldown('overallImprove', 'improve');
+  setupTemplatePulldown('overallExpectation', 'expectation');
+
+  // イベント
+  document.getElementById('saveBtn').addEventListener('click', save);
+  document.getElementById('excelBtn').addEventListener('click', () => editingId && (location.href = `/api/evaluations/${editingId}/excel`));
+  document.getElementById('emailBtn').addEventListener('click', sendEmail);
+  document.getElementById('printBtn').addEventListener('click', () => window.print());
+  document.getElementById('deleteBtn').addEventListener('click', deleteEval);
+  document.getElementById('addCompanyBtn').addEventListener('click', () => quickAddCompany());
+  document.getElementById('addConstructionBtn').addEventListener('click', () => quickAddConstruction());
+  document.getElementById('addTypeBtn').addEventListener('click', () => quickAddType());
+
+  // 一括設定
+  document.querySelectorAll('[data-bulk]').forEach(btn => {
+    btn.addEventListener('click', () => bulkSetScore(Number(btn.dataset.bulk)));
+  });
+
+  // 工事選択時に工期を自動補完
+  document.getElementById('constructionId').addEventListener('change', () => {
+    const id = Number(document.getElementById('constructionId').value);
+    const c = constructions.find(x => x.id === id);
+    if (c && (c.startDate || c.endDate)) {
+      document.getElementById('period').value = `${c.startDate || ''} ～ ${c.endDate || ''}`;
+    }
+    checkDuplicate();
+  });
+  document.getElementById('companyId').addEventListener('change', checkDuplicate);
+
+  // 任意フィールド変更でdirty
+  ['evaluationDate', 'period', 'approver', 'overallGood', 'overallImprove', 'overallExpectation', 'reply', 'status'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => { markDirty(); });
+    el.addEventListener('change', () => { markDirty(); });
+  });
+
+  // 編集モード
+  const params = new URLSearchParams(location.search);
+  if (params.get('id')) {
+    editingId = Number(params.get('id'));
+    await loadEvaluation(editingId);
+    document.getElementById('pageTitle').textContent = `📝 評価の編集 (#${editingId})`;
+    document.getElementById('deleteBtn').style.display = 'inline-block';
+    document.getElementById('excelBtn').disabled = false;
+    document.getElementById('emailBtn').disabled = false;
+    Local.remove(DRAFT_KEY);
+  } else {
+    // 下書き復元
+    const draft = Local.get(DRAFT_KEY);
+    if (draft && Object.keys(draft).length > 0) {
+      const restore = await confirmDialog('未保存の下書きが見つかりました。復元しますか？', { okLabel: '復元', cancelLabel: '破棄' });
+      if (restore) restoreFromObject(draft);
+      else Local.remove(DRAFT_KEY);
+    }
+  }
+
+  // キーボードショートカット
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 's') { e.preventDefault(); save(); }
+    // 1-5キーで現在フォーカスの項目に点数入力（テキストエリア・select以外）
+    if (['1','2','3','4','5'].includes(e.key) && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) {
+      const item = document.querySelector('.eval-item:focus, .eval-item:hover');
+      if (item) selectScore(item, Number(e.key));
+    }
+  });
+
+  // ページ離脱警告
+  window.addEventListener('beforeunload', (e) => {
+    if (dirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+}
+
+async function reloadMasters() {
+  [companies, constructions, constructionTypes, users, commentTemplates] = await Promise.all([
+    api('GET', '/companies'),
+    api('GET', '/constructions'),
+    api('GET', '/construction-types'),
+    api('GET', '/users'),
+    api('GET', '/comment-templates'),
+  ]);
+  fillSelectId('companyId', companies, '協力会社を選択');
+  fillSelectId('constructionId', constructions, '工事を選択');
+  fillSelectName('constructionType', constructionTypes, '（任意）工事種別を選択');
+  fillSelectName('evaluator', users, '評価者を選択');
+}
+
+function fillSelectId(id, items, placeholder) {
+  const sel = document.getElementById(id);
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">${placeholder}</option>` +
+    items.map(i => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+function fillSelectName(id, items, placeholder) {
+  const sel = document.getElementById(id);
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">${placeholder}</option>` +
+    items.map(i => `<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+
+function buildEvalItems() {
+  const container = document.getElementById('evalItems');
+  container.innerHTML = evalItemsConfig.map(item => `
+    <div class="eval-item" data-key="${item.key}" tabindex="0">
+      <div class="eval-item-header">
+        <span class="eval-item-no">${item.no}</span>
+        <span class="eval-item-title">${item.name}</span>
+      </div>
+      <div class="eval-item-view">${item.view}</div>
+      <div class="eval-item-grid">
+        <div>
+          <div class="score-buttons">
+            ${[1,2,3,4,5].map(n => `<button type="button" class="score-btn score-${n}" data-score="${n}">${n}</button>`).join('')}
+          </div>
+        </div>
+        <div class="comment-area">
+          <select class="template-pulldown" data-target="comment${item.key}"><option value="">▼ 定型例から選択</option></select>
+          <textarea id="comment${item.key}" rows="2" placeholder="コメント（任意）"></textarea>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.score-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.eval-item');
+      selectScore(item, Number(btn.dataset.score));
+    });
+  });
+
+  evalItemsConfig.forEach(item => {
+    setupTemplatePulldown(`comment${item.key}`, item.category);
+    document.getElementById(`comment${item.key}`).addEventListener('input', markDirty);
+  });
+}
+
+function selectScore(item, score) {
+  item.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+  if (score >= 1 && score <= 5) {
+    item.querySelector(`.score-btn[data-score="${score}"]`)?.classList.add('selected');
+    item.dataset.score = score;
+    item.classList.add('completed');
+  } else {
+    delete item.dataset.score;
+    item.classList.remove('completed');
+  }
+  recalc();
+  markDirty();
+}
+
+function bulkSetScore(score) {
+  document.querySelectorAll('.eval-item').forEach(item => selectScore(item, score));
+}
+
+function setupTemplatePulldown(targetId, category) {
+  const sel = document.querySelector(`select.template-pulldown[data-target="${targetId}"]`);
+  if (!sel) return;
+  const tmpls = commentTemplates.filter(t => t.category === category);
+  sel.innerHTML = '<option value="">▼ 定型例から選択して挿入</option>' +
+    tmpls.map(t => `<option value="${escapeHtml(t.text)}">${escapeHtml(t.text)}</option>`).join('');
+  sel.addEventListener('change', () => {
+    if (sel.value) {
+      const ta = document.getElementById(targetId);
+      ta.value = ta.value ? ta.value + '\n' + sel.value : sel.value;
+      sel.value = '';
+      markDirty();
+    }
+  });
+}
+
+function getScores() {
+  return evalItemsConfig.map(item => {
+    const el = document.querySelector(`.eval-item[data-key="${item.key}"]`);
+    return el?.dataset.score ? Number(el.dataset.score) : null;
+  });
+}
+
+function recalc() {
+  const scores = getScores();
+  const valid = scores.filter(s => s !== null);
+  if (valid.length === 0) {
+    document.getElementById('totalScore').textContent = '―';
+    document.getElementById('avgScore').textContent = '―';
+    document.getElementById('rankCircle').textContent = '―';
+    return;
+  }
+  const total = valid.reduce((a, b) => a + b, 0);
+  const avg = total / valid.length;
+  document.getElementById('totalScore').textContent = total;
+  document.getElementById('avgScore').textContent = avg.toFixed(2);
+  let rank;
+  if (valid.length < 7) rank = `(${valid.length}/7)`;
+  else if (scores.includes(1)) rank = 'D';
+  else if (scores.includes(2)) rank = avg >= 2.6 ? 'C' : 'D';
+  else if (avg === 5) rank = 'S';
+  else if (avg >= 4.2) rank = 'A';
+  else if (avg >= 3.4) rank = 'B';
+  else if (avg >= 2.6) rank = 'C';
+  else rank = 'D';
+  document.getElementById('rankCircle').textContent = rank;
+}
+
+async function checkDuplicate() {
+  const cid = document.getElementById('companyId').value;
+  const consId = document.getElementById('constructionId').value;
+  if (!cid || !consId) { document.getElementById('duplicateAlert').innerHTML = ''; return; }
+  try {
+    const result = await api('GET', `/evaluations/check-duplicate/${cid}/${consId}`);
+    const otherIds = result.items.filter(i => i.id !== editingId);
+    if (otherIds.length > 0) {
+      document.getElementById('duplicateAlert').innerHTML = `
+        <div class="alert warning">
+          <strong>⚠️ 同じ協力会社×工事の評価が既に ${otherIds.length} 件あります</strong><br>
+          <small>${otherIds.map(i => `<a href="/new.html?id=${i.id}">#${i.id} ${fmtDate(i.evaluationDate)} (${i.rank})</a>`).join(' / ')}</small>
+        </div>
+      `;
+    } else {
+      document.getElementById('duplicateAlert').innerHTML = '';
+    }
+  } catch (e) {}
+}
+
+async function loadEvaluation(id) {
+  const e = await api('GET', `/evaluations/${id}`);
+  restoreFromObject(e);
+}
+
+function restoreFromObject(e) {
+  document.getElementById('evaluationDate').value = e.evaluationDate || '';
+  document.getElementById('companyId').value = e.companyId || '';
+  document.getElementById('constructionId').value = e.constructionId || '';
+  document.getElementById('constructionType').value = e.constructionType || '';
+  document.getElementById('period').value = e.period || '';
+  document.getElementById('evaluator').value = e.evaluator || '';
+  document.getElementById('approver').value = e.approver || '';
+  document.getElementById('status').value = e.status || '下書き';
+  document.getElementById('statusDisplay').innerHTML = statusBadge(e.status);
+
+  evalItemsConfig.forEach(item => {
+    const score = e[`score${item.key}`];
+    const el = document.querySelector(`.eval-item[data-key="${item.key}"]`);
+    el.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+    el.classList.remove('completed');
+    delete el.dataset.score;
+    if (score) {
+      el.dataset.score = score;
+      el.querySelector(`.score-btn[data-score="${score}"]`)?.classList.add('selected');
+      el.classList.add('completed');
+    }
+    document.getElementById(`comment${item.key}`).value = e[`comment${item.key}`] || '';
+  });
+
+  document.getElementById('overallGood').value = e.overallGood || '';
+  document.getElementById('overallImprove').value = e.overallImprove || '';
+  document.getElementById('overallExpectation').value = e.overallExpectation || '';
+  document.getElementById('reply').value = e.reply || '';
+  recalc();
+  checkDuplicate();
+  dirty = false;
+}
+
+function collectData() {
+  const data = {
+    evaluationDate: document.getElementById('evaluationDate').value,
+    companyId: Number(document.getElementById('companyId').value) || null,
+    constructionId: Number(document.getElementById('constructionId').value) || null,
+    constructionType: document.getElementById('constructionType').value,
+    period: document.getElementById('period').value,
+    evaluator: document.getElementById('evaluator').value,
+    approver: document.getElementById('approver').value,
+    status: document.getElementById('status').value,
+    overallGood: document.getElementById('overallGood').value,
+    overallImprove: document.getElementById('overallImprove').value,
+    overallExpectation: document.getElementById('overallExpectation').value,
+    reply: document.getElementById('reply').value,
+  };
+  evalItemsConfig.forEach(item => {
+    const el = document.querySelector(`.eval-item[data-key="${item.key}"]`);
+    data[`score${item.key}`] = el?.dataset.score ? Number(el.dataset.score) : null;
+    data[`comment${item.key}`] = document.getElementById(`comment${item.key}`).value;
+  });
+  return data;
+}
+
+async function save() {
+  const data = collectData();
+  if (!data.companyId) { toast('協力会社を選択してください', 'error'); document.getElementById('companyId').classList.add('invalid'); return; }
+  if (!data.constructionId) { toast('工事を選択してください', 'error'); document.getElementById('constructionId').classList.add('invalid'); return; }
+
+  try {
+    let result;
+    if (editingId) {
+      result = await api('PUT', `/evaluations/${editingId}`, data);
+      toast('保存しました', 'success');
+    } else {
+      result = await api('POST', '/evaluations', data);
+      editingId = result.id;
+      history.replaceState(null, '', `/new.html?id=${editingId}`);
+      document.getElementById('pageTitle').textContent = `📝 評価の編集 (#${editingId})`;
+      document.getElementById('deleteBtn').style.display = 'inline-block';
+      document.getElementById('excelBtn').disabled = false;
+      document.getElementById('emailBtn').disabled = false;
+      toast('新規作成しました', 'success');
+    }
+    document.getElementById('statusDisplay').innerHTML = statusBadge(result.status);
+    dirty = false;
+    Local.remove(DRAFT_KEY);
+    updateAutoSaveIndicator('保存済み');
+  } catch (e) {
+    toast('保存エラー: ' + e.message, 'error');
+  }
+}
+
+async function deleteEval() {
+  if (!editingId) return;
+  if (!await confirmDialog('この評価を削除します。よろしいですか？', { dangerous: true, okLabel: '削除' })) return;
+  try {
+    await api('DELETE', `/evaluations/${editingId}`);
+    toast('削除しました', 'success');
+    setTimeout(() => location.href = '/list.html', 800);
+  } catch (e) {
+    toast('削除エラー: ' + e.message, 'error');
+  }
+}
+
+async function sendEmail() {
+  if (!editingId) return;
+  const data = await api('GET', `/evaluations/${editingId}`);
+  const company = companies.find(c => c.id === data.companyId);
+  if (!company || !company.email) {
+    return toast('協力会社のメールアドレスが未登録です。マスタ管理から登録してください。', 'warning');
+  }
+  const subject = `評価シートのお送付 (${data.constructionName || ''})`;
+  const body = `${company.name} 御中\n\nいつもお世話になっております。ニッケン建設の${data.evaluator || '担当'}です。\n\n標題の件、評価シートをお送りいたします（添付）。\nご確認のほどよろしくお願いいたします。\n\n────────────────\n  評価日：${fmtDate(data.evaluationDate)}\n  工事名：${data.constructionName || ''}\n  総合評価：${data.rank || '―'} (合計${data.total || '―'}点)\n────────────────\n\nまず評価シートのExcelファイルをダウンロードして添付してください。\n（このメールを送る前に、画面右上の「Excel出力」ボタンを押してください）\n\nよろしくお願いいたします。`;
+  const mailto = `mailto:${encodeURIComponent(company.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  location.href = mailto;
+  // 自動的にステータスを「送付済」に
+  setTimeout(async () => {
+    if (await confirmDialog('メールを送信した場合、ステータスを「送付済」に変更しますか？', { okLabel: '変更する' })) {
+      document.getElementById('status').value = '送付済';
+      await save();
+    }
+  }, 1500);
+}
+
+// ===== オートセーブ =====
+function markDirty() {
+  dirty = true;
+  updateAutoSaveIndicator('未保存（自動下書き保存中…）');
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(autoSave, 2000);
+  recalc();
+}
+function autoSave() {
+  if (!editingId) {
+    Local.set(DRAFT_KEY, collectData());
+    updateAutoSaveIndicator('💾 下書き自動保存済 (' + new Date().toLocaleTimeString() + ')');
+  }
+}
+function updateAutoSaveIndicator(text) {
+  document.getElementById('autoSaveIndicator').textContent = text;
+}
+
+// ===== クイック追加 =====
+async function quickAddCompany() {
+  const name = prompt('協力会社名を入力してください');
+  if (!name) return;
+  const result = await api('POST', '/companies', { name });
+  await reloadMasters();
+  document.getElementById('companyId').value = result.id;
+  toast('追加しました：' + name, 'success');
+}
+async function quickAddConstruction() {
+  const name = prompt('工事名を入力してください');
+  if (!name) return;
+  const result = await api('POST', '/constructions', { name, status: '進行中' });
+  await reloadMasters();
+  document.getElementById('constructionId').value = result.id;
+  toast('追加しました：' + name, 'success');
+}
+async function quickAddType() {
+  const name = prompt('工事種別を入力してください');
+  if (!name) return;
+  await api('POST', '/construction-types', { name });
+  await reloadMasters();
+  document.getElementById('constructionType').value = name;
+  toast('追加しました：' + name, 'success');
+}
+
+init();
+</script>
+</body>
+</html>

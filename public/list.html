@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>評価一覧 | 協力会社評価システム</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="header">
+  <h1>🏗️ 協力会社評価システム <span class="sub">ニッケン建設株式会社</span></h1>
+</header>
+<nav class="nav">
+  <a href="/">ダッシュボード</a>
+  <a href="/new.html">新規評価</a>
+  <a href="/list.html">評価一覧</a>
+  <a href="/analysis.html">分析・グラフ</a>
+  <a href="/master.html">マスタ管理</a>
+  <a href="/settings.html">設定</a>
+</nav>
+
+<div class="container">
+  <h2 class="section-title">📄 評価一覧</h2>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="toolbar">
+        <div class="search-box">
+          <input type="text" id="filterText" placeholder="協力会社・工事名・コメント全文を検索">
+        </div>
+        <select id="filterCompany"><option value="">全ての協力会社</option></select>
+        <select id="filterYear"><option value="">全ての年</option></select>
+        <select id="filterRank">
+          <option value="">全てのランク</option>
+          <option value="S">S</option><option value="A">A</option>
+          <option value="B">B</option><option value="C">C</option><option value="D">D</option>
+        </select>
+        <select id="filterStatus">
+          <option value="">全ての状態</option>
+          <option value="下書き">下書き</option>
+          <option value="提出済">提出済</option>
+          <option value="承認済">承認済</option>
+          <option value="送付済">送付済</option>
+        </select>
+        <input type="date" id="dateFrom" title="開始日">
+        <input type="date" id="dateTo" title="終了日">
+        <button class="btn small secondary" id="resetFilter">リセット</button>
+      </div>
+
+      <div class="toolbar" style="background:var(--navy-pale);padding:10px;border-radius:6px">
+        <span style="font-size:13px"><input type="checkbox" id="selectAll"> 全選択</span>
+        <span class="dim" style="font-size:13px"><span id="selectedCount">0</span>件選択中</span>
+        <span class="spacer"></span>
+        <button class="btn small success" id="bulkExcel" disabled>📦 選択をZIPでExcel一括ダウンロード</button>
+        <button class="btn small warning" id="bulkStatus" disabled>📌 ステータス一括変更</button>
+        <button class="btn small danger" id="bulkDelete" disabled>🗑 一括削除</button>
+        <span class="spacer"></span>
+        <a class="btn small secondary" href="/api/evaluations/export-csv">📑 CSV全件出力</a>
+        <a class="btn small secondary" href="/api/evaluations/summary-excel">📊 集計表Excel</a>
+        <a href="/new.html" class="btn small">➕ 新規</a>
+      </div>
+
+      <div id="listContainer"><div class="loading">読み込み中...</div></div>
+      <div id="pagination" class="pagination"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let allItems = [];
+let filtered = [];
+let currentPage = 1;
+const PAGE_SIZE = 20;
+let sortBy = 'evaluationDate';
+let sortDir = 'desc';
+let companies = [];
+const selected = new Set();
+
+async function init() {
+  [allItems, companies] = await Promise.all([
+    api('GET', '/evaluations?sortDir=desc'),
+    api('GET', '/companies')
+  ]);
+  document.getElementById('filterCompany').innerHTML +=
+    companies.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  const years = [...new Set(allItems.map(e => e.evaluationDate?.slice(0, 4)).filter(Boolean))].sort().reverse();
+  document.getElementById('filterYear').innerHTML += years.map(y => `<option value="${y}">${y}年</option>`).join('');
+
+  ['filterCompany', 'filterYear', 'filterRank', 'filterStatus', 'dateFrom', 'dateTo'].forEach(id => {
+    document.getElementById(id).addEventListener('change', render);
+  });
+  document.getElementById('filterText').addEventListener('input', debounce(render, 200));
+  document.getElementById('resetFilter').addEventListener('click', () => {
+    ['filterText','filterCompany','filterYear','filterRank','filterStatus','dateFrom','dateTo'].forEach(id => document.getElementById(id).value = '');
+    render();
+  });
+
+  document.getElementById('selectAll').addEventListener('change', (e) => toggleSelectAll(e.target.checked));
+  document.getElementById('bulkExcel').addEventListener('click', bulkExcelDownload);
+  document.getElementById('bulkStatus').addEventListener('click', bulkChangeStatus);
+  document.getElementById('bulkDelete').addEventListener('click', bulkDelete);
+
+  render();
+}
+
+function applyFilters() {
+  const company = document.getElementById('filterCompany').value;
+  const year = document.getElementById('filterYear').value;
+  const rank = document.getElementById('filterRank').value;
+  const status = document.getElementById('filterStatus').value;
+  const dateFrom = document.getElementById('dateFrom').value;
+  const dateTo = document.getElementById('dateTo').value;
+  const text = document.getElementById('filterText').value.toLowerCase().trim();
+
+  filtered = [...allItems];
+  if (company) filtered = filtered.filter(e => String(e.companyId) === company);
+  if (year) filtered = filtered.filter(e => e.evaluationDate?.startsWith(year));
+  if (rank) filtered = filtered.filter(e => e.rank === rank);
+  if (status) filtered = filtered.filter(e => (e.status || '下書き') === status);
+  if (dateFrom) filtered = filtered.filter(e => (e.evaluationDate || '') >= dateFrom);
+  if (dateTo) filtered = filtered.filter(e => (e.evaluationDate || '') <= dateTo);
+  if (text) {
+    filtered = filtered.filter(e => {
+      const haystack = [
+        e.companyName, e.constructionName, e.constructionType, e.evaluator,
+        e.commentBudget, e.commentQuality, e.commentSchedule, e.commentSafety,
+        e.commentCommunication, e.commentDocument, e.commentProposal,
+        e.overallGood, e.overallImprove, e.overallExpectation, e.reply
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(text);
+    });
+  }
+
+  // ソート
+  const dir = sortDir === 'asc' ? 1 : -1;
+  filtered.sort((a, b) => {
+    const av = a[sortBy] ?? ''; const bv = b[sortBy] ?? '';
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+}
+
+function render() {
+  applyFilters();
+  if (filtered.length === 0) {
+    document.getElementById('listContainer').innerHTML = '<div class="empty">該当する評価がありません</div>';
+    document.getElementById('pagination').innerHTML = '';
+    updateSelectedCount();
+    return;
+  }
+
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = filtered.slice(start, start + PAGE_SIZE);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  if (currentPage > totalPages) { currentPage = totalPages; return render(); }
+
+  const sortHeader = (key, label) => {
+    const cur = sortBy === key ? (sortDir === 'asc' ? '▲' : '▼') : '▲▼';
+    return `<th class="sortable ${sortBy === key ? 'sorted' : ''}" onclick="changeSort('${key}')">${label}<span class="sort-arrow">${cur}</span></th>`;
+  };
+
+  document.getElementById('listContainer').innerHTML = `
+    <div class="table-wrap">
+    <table class="responsive-table">
+      <thead><tr>
+        <th style="width:40px"><input type="checkbox" id="pageSelectAll"></th>
+        ${sortHeader('evaluationDate', '評価日')}
+        ${sortHeader('companyName', '協力会社')}
+        ${sortHeader('constructionName', '工事名')}
+        <th>工種</th>
+        ${sortHeader('total', '合計')}
+        ${sortHeader('average', '平均')}
+        ${sortHeader('rank', '評価')}
+        <th>評価者</th>
+        ${sortHeader('status', '状態')}
+        <th class="text-right" style="min-width:160px">操作</th>
+      </tr></thead>
+      <tbody>
+        ${pageItems.map(e => `
+          <tr>
+            <td><input type="checkbox" class="row-check" data-id="${e.id}" ${selected.has(e.id) ? 'checked' : ''}></td>
+            <td data-label="評価日">${fmtDate(e.evaluationDate)}</td>
+            <td data-label="協力会社">${escapeHtml(e.companyName)}</td>
+            <td data-label="工事名">${escapeHtml(e.constructionName)}</td>
+            <td data-label="工種">${escapeHtml(e.constructionType || '')}</td>
+            <td data-label="合計" class="text-center">${e.total ?? '―'}/35</td>
+            <td data-label="平均" class="text-center">${e.average?.toFixed(2) ?? '―'}</td>
+            <td data-label="評価" class="text-center">${rankBadge(e.rank)}</td>
+            <td data-label="評価者">${escapeHtml(e.evaluator || '')}</td>
+            <td data-label="状態" class="text-center">${statusBadge(e.status)}</td>
+            <td class="text-right action-cell">
+              <a href="/new.html?id=${e.id}" class="btn small secondary">編集</a>
+              <a href="/api/evaluations/${e.id}/excel" class="btn small">Excel</a>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    </div>
+    <div class="dim" style="margin-top:12px;font-size:12px">${filtered.length}件中 ${start + 1}〜${Math.min(start + PAGE_SIZE, filtered.length)}件を表示</div>
+  `;
+
+  // ページネーション
+  if (totalPages > 1) {
+    let pagi = `<button onclick="goPage(1)" ${currentPage===1?'disabled':''}>«</button>`;
+    pagi += `<button onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+    pagi += `<span class="info">${currentPage} / ${totalPages}</span>`;
+    pagi += `<button onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>`;
+    pagi += `<button onclick="goPage(${totalPages})" ${currentPage===totalPages?'disabled':''}>»</button>`;
+    document.getElementById('pagination').innerHTML = pagi;
+  } else {
+    document.getElementById('pagination').innerHTML = '';
+  }
+
+  // 選択ハンドラ
+  document.querySelectorAll('.row-check').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const id = Number(cb.dataset.id);
+      if (cb.checked) selected.add(id); else selected.delete(id);
+      updateSelectedCount();
+    });
+  });
+  document.getElementById('pageSelectAll')?.addEventListener('change', (e) => {
+    document.querySelectorAll('.row-check').forEach(cb => {
+      cb.checked = e.target.checked;
+      const id = Number(cb.dataset.id);
+      if (e.target.checked) selected.add(id); else selected.delete(id);
+    });
+    updateSelectedCount();
+  });
+  updateSelectedCount();
+}
+
+window.changeSort = (key) => {
+  if (sortBy === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  else { sortBy = key; sortDir = 'asc'; }
+  render();
+};
+window.goPage = (p) => { currentPage = p; render(); window.scrollTo(0, 0); };
+
+function toggleSelectAll(checked) {
+  if (checked) filtered.forEach(e => selected.add(e.id));
+  else selected.clear();
+  render();
+}
+
+function updateSelectedCount() {
+  document.getElementById('selectedCount').textContent = selected.size;
+  ['bulkExcel', 'bulkStatus', 'bulkDelete'].forEach(id => {
+    document.getElementById(id).disabled = selected.size === 0;
+  });
+}
+
+async function bulkExcelDownload() {
+  if (selected.size === 0) return;
+  toast('ZIPファイルを生成中...', 'info');
+  const res = await fetch('/api/evaluations/bulk-excel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids: [...selected] })
+  });
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `evaluations_${new Date().toISOString().slice(0,10)}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('ZIPをダウンロードしました', 'success');
+}
+
+async function bulkChangeStatus() {
+  const status = prompt('変更後のステータスを入力してください\n（下書き / 提出済 / 承認済 / 送付済）');
+  if (!status || !['下書き','提出済','承認済','送付済'].includes(status)) return toast('無効なステータス', 'error');
+  for (const id of selected) {
+    const e = await api('GET', `/evaluations/${id}`);
+    await api('PUT', `/evaluations/${id}`, { ...e, status });
+  }
+  toast(`${selected.size}件を「${status}」に変更しました`, 'success');
+  selected.clear();
+  allItems = await api('GET', '/evaluations?sortDir=desc');
+  render();
+}
+
+async function bulkDelete() {
+  if (!await confirmDialog(`${selected.size}件の評価を削除します。元に戻せません。よろしいですか？`, { dangerous: true, okLabel: '削除' })) return;
+  for (const id of selected) {
+    await api('DELETE', `/evaluations/${id}`);
+  }
+  toast(`${selected.size}件削除しました`, 'success');
+  selected.clear();
+  allItems = await api('GET', '/evaluations?sortDir=desc');
+  render();
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ダッシュボード | 協力会社評価システム</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header class="header">
+  <h1>🏗️ 協力会社評価システム <span class="sub">ニッケン建設株式会社</span></h1>
+</header>
+<nav class="nav">
+  <a href="/">ダッシュボード</a>
+  <a href="/new.html">新規評価</a>
+  <a href="/list.html">評価一覧</a>
+  <a href="/analysis.html">分析・グラフ</a>
+  <a href="/master.html">マスタ管理</a>
+  <a href="/settings.html">設定</a>
+</nav>
+
+<div class="container">
+  <h2 class="section-title">📊 ダッシュボード</h2>
+
+  <div id="missingAlert"></div>
+
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-num" id="totalEval">―</div><div class="stat-label">総評価数</div></div>
+    <div class="stat-card"><div class="stat-num" id="totalCompanies">―</div><div class="stat-label">登録協力会社</div></div>
+    <div class="stat-card"><div class="stat-num" id="avgScore">―</div><div class="stat-label">全体平均点</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--gold)" id="rankS">―</div><div class="stat-label">S評価</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--green)" id="rankA">―</div><div class="stat-label">A評価</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--orange)" id="statusDraft">―</div><div class="stat-label">下書き</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--navy-light)" id="statusSent">―</div><div class="stat-label">送付済</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span>📋 クイックアクション</span></div>
+    <div class="card-body">
+      <div class="btn-group">
+        <a href="/new.html" class="btn">➕ 新規評価を作成</a>
+        <a href="/list.html" class="btn secondary">📄 評価一覧</a>
+        <a href="/analysis.html" class="btn secondary">📊 分析・グラフ</a>
+        <a href="/master.html" class="btn secondary">⚙️ マスタ管理</a>
+        <a href="/api/evaluations/summary-excel" class="btn success">📥 集計表ダウンロード</a>
+        <a href="/api/backup/download" class="btn warning">💾 バックアップ</a>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card">
+      <div class="card-header"><span>📈 評価ランク分布</span></div>
+      <div class="card-body">
+        <div style="position:relative;height:240px"><canvas id="rankChart"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span>📅 月別評価数</span></div>
+      <div class="card-body">
+        <div style="position:relative;height:240px"><canvas id="monthlyChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span>🕐 直近の評価</span></div>
+    <div class="card-body">
+      <div id="recentList"><div class="loading">読み込み中...</div></div>
+    </div>
+  </div>
+</div>
+
+<a href="/new.html" class="fab" title="新規評価">+</a>
+
+<script src="/js/common.js"></script>
+<script>
+async function load() {
+  try {
+    const [summary, missing, monthly, list] = await Promise.all([
+      api('GET', '/stats/summary'),
+      api('GET', '/stats/missing-evaluations'),
+      api('GET', '/stats/monthly'),
+      api('GET', '/evaluations'),
+    ]);
+
+    document.getElementById('totalEval').textContent = summary.totalEvaluations;
+    document.getElementById('totalCompanies').textContent = summary.totalCompanies;
+    document.getElementById('avgScore').textContent = summary.averageScore || '―';
+    document.getElementById('rankS').textContent = summary.ranks.S;
+    document.getElementById('rankA').textContent = summary.ranks.A;
+    document.getElementById('statusDraft').textContent = summary.statuses['下書き'] || 0;
+    document.getElementById('statusSent').textContent = summary.statuses['送付済'] || 0;
+
+    // 未評価アラート
+    if (missing.length > 0) {
+      document.getElementById('missingAlert').innerHTML = `
+        <div class="alert warning">
+          <strong>⚠️ 未評価の工事が ${missing.length} 件あります</strong>
+          <div style="margin-top:8px;font-size:12px">
+            ${missing.slice(0, 5).map(m => `・${escapeHtml(m.construction.name)}`).join('<br>')}
+            ${missing.length > 5 ? `<br>...他 ${missing.length - 5} 件` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // ランク円グラフ
+    new Chart(document.getElementById('rankChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['S', 'A', 'B', 'C', 'D'],
+        datasets: [{
+          data: ['S','A','B','C','D'].map(r => summary.ranks[r] || 0),
+          backgroundColor: ['#FFD966', '#548235', '#2E75B6', '#ED7D31', '#C00000'],
+          borderWidth: 2,
+          borderColor: getComputedStyle(document.body).getPropertyValue('--card-bg')
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'right' } }
+      }
+    });
+
+    // 月別棒グラフ
+    new Chart(document.getElementById('monthlyChart'), {
+      type: 'bar',
+      data: {
+        labels: monthly.map(m => m.month),
+        datasets: [{
+          label: '評価数',
+          data: monthly.map(m => m.count),
+          backgroundColor: 'rgba(46, 117, 182, 0.7)',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+      }
+    });
+
+    // 直近5件
+    const recent = list.slice(0, 5);
+    if (recent.length === 0) {
+      document.getElementById('recentList').innerHTML = '<div class="empty">まだ評価がありません。「新規評価」から最初の評価を作成してください。</div>';
+    } else {
+      document.getElementById('recentList').innerHTML = `
+        <div class="table-wrap">
+        <table class="responsive-table">
+          <thead><tr><th>評価日</th><th>協力会社</th><th>工事</th><th class="text-center">評価</th><th class="text-center">合計</th><th class="text-center">状態</th><th class="text-right">操作</th></tr></thead>
+          <tbody>
+            ${recent.map(e => `
+              <tr>
+                <td data-label="評価日">${fmtDate(e.evaluationDate)}</td>
+                <td data-label="協力会社">${escapeHtml(e.companyName)}</td>
+                <td data-label="工事">${escapeHtml(e.constructionName)}</td>
+                <td data-label="評価" class="text-center">${rankBadge(e.rank)}</td>
+                <td data-label="合計" class="text-center">${e.total ?? '―'}/35</td>
+                <td data-label="状態" class="text-center">${statusBadge(e.status)}</td>
+                <td class="text-right action-cell">
+                  <a href="/new.html?id=${e.id}" class="btn small secondary">編集</a>
+                  <a href="/api/evaluations/${e.id}/excel" class="btn small">Excel</a>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table></div>
+      `;
+    }
+  } catch (e) {
+    toast('読み込みエラー: ' + e.message, 'error');
+  }
+}
+load();
+</script>
+</body>
+</html>

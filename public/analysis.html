@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分析・グラフ | 協力会社評価システム</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header class="header">
+  <h1>🏗️ 協力会社評価システム <span class="sub">ニッケン建設株式会社</span></h1>
+</header>
+<nav class="nav">
+  <a href="/">ダッシュボード</a>
+  <a href="/new.html">新規評価</a>
+  <a href="/list.html">評価一覧</a>
+  <a href="/analysis.html">分析・グラフ</a>
+  <a href="/master.html">マスタ管理</a>
+  <a href="/settings.html">設定</a>
+</nav>
+
+<div class="container">
+  <h2 class="section-title">
+    <span>📊 分析・グラフ</span>
+    <span><a href="/api/evaluations/export-csv" class="btn small secondary">📑 CSV全件出力</a></span>
+  </h2>
+
+  <div id="emptyMsg"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="company">🔵 協力会社別</div>
+    <div class="tab" data-tab="type">🟠 工種別</div>
+    <div class="tab" data-tab="trend">📈 時系列推移</div>
+    <div class="tab" data-tab="rank">🏆 ランキング</div>
+  </div>
+
+  <!-- 協力会社別 -->
+  <div class="tab-content active" data-tab-content="company">
+    <div class="card">
+      <div class="card-header"><span>協力会社別 平均評価</span></div>
+      <div class="card-body">
+        <div style="position:relative;height:400px"><canvas id="byCompanyChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 工種別 -->
+  <div class="tab-content" data-tab-content="type">
+    <div class="card">
+      <div class="card-header"><span>工種別 平均評価</span></div>
+      <div class="card-body">
+        <div style="position:relative;height:400px"><canvas id="byTypeChart"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span>工種別 件数</span></div>
+      <div class="card-body">
+        <div id="typeTable"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 時系列推移 -->
+  <div class="tab-content" data-tab-content="trend">
+    <div class="card">
+      <div class="card-header"><span>協力会社別 時系列推移（平均点）</span></div>
+      <div class="card-body">
+        <div class="toolbar">
+          <select id="trendCompany" multiple size="6" style="min-width:200px"></select>
+          <span class="dim" style="font-size:12px">複数選択（Ctrl/Cmd+クリック）で同時表示</span>
+        </div>
+        <div style="position:relative;height:400px"><canvas id="trendChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ランキング -->
+  <div class="tab-content" data-tab-content="rank">
+    <div class="card">
+      <div class="card-header"><span>📋 協力会社別ランキング</span></div>
+      <div class="card-body">
+        <div id="ranking"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let byCompany = [], byType = [], allEvals = [], companies = [];
+
+async function init() {
+  [byCompany, byType, allEvals, companies] = await Promise.all([
+    api('GET', '/stats/by-company'),
+    api('GET', '/stats/by-type'),
+    api('GET', '/evaluations'),
+    api('GET', '/companies'),
+  ]);
+
+  if (allEvals.length === 0) {
+    document.getElementById('emptyMsg').innerHTML = '<div class="alert info">分析するデータがまだありません。評価を作成すると自動的に分析が表示されます。</div>';
+    return;
+  }
+
+  renderCompanyChart();
+  renderTypeChart();
+  renderTypeTable();
+  renderRanking();
+  setupTrendChart();
+  setupTabs();
+}
+
+function renderCompanyChart() {
+  new Chart(document.getElementById('byCompanyChart'), {
+    type: 'bar',
+    data: {
+      labels: byCompany.map(c => c.companyName),
+      datasets: [{
+        label: '平均点',
+        data: byCompany.map(c => c.averageScore || 0),
+        backgroundColor: byCompany.map(c => {
+          const s = c.averageScore || 0;
+          if (s === 5) return '#FFD966';
+          if (s >= 4.2) return '#548235';
+          if (s >= 3.4) return '#2E75B6';
+          if (s >= 2.6) return '#ED7D31';
+          return '#C00000';
+        }),
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: window.innerWidth < 768 ? 'y' : 'x',
+      scales: {
+        [window.innerWidth < 768 ? 'x' : 'y']: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const item = byCompany[ctx.dataIndex];
+              return [`平均点: ${ctx.parsed[window.innerWidth < 768 ? 'x' : 'y']}`, `評価回数: ${item.count}`];
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderTypeChart() {
+  if (byType.length === 0) return;
+  new Chart(document.getElementById('byTypeChart'), {
+    type: 'bar',
+    data: {
+      labels: byType.map(c => c.type),
+      datasets: [{
+        label: '平均点',
+        data: byType.map(c => c.averageScore || 0),
+        backgroundColor: '#2E75B6',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { y: { beginAtZero: true, max: 5 } },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+function renderTypeTable() {
+  if (byType.length === 0) {
+    document.getElementById('typeTable').innerHTML = '<div class="empty">データなし</div>';
+    return;
+  }
+  document.getElementById('typeTable').innerHTML = `
+    <div class="table-wrap"><table>
+      <thead><tr><th>工種</th><th class="text-center">件数</th><th class="text-center">平均点</th><th>ランク内訳</th></tr></thead>
+      <tbody>
+        ${byType.map(t => `
+          <tr>
+            <td>${escapeHtml(t.type)}</td>
+            <td class="text-center">${t.count}</td>
+            <td class="text-center" style="font-weight:bold">${t.averageScore.toFixed(2)}</td>
+            <td>${['S','A','B','C','D'].filter(r => t.ranks[r]).map(r => `${rankBadge(r)}×${t.ranks[r]}`).join(' ')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table></div>
+  `;
+}
+
+function renderRanking() {
+  document.getElementById('ranking').innerHTML = `
+    <div class="table-wrap"><table>
+      <thead><tr><th>順位</th><th>協力会社</th><th class="text-center">評価回数</th><th class="text-center">平均点</th><th class="text-center">最新評価日</th><th>ランク内訳</th><th class="text-right">詳細</th></tr></thead>
+      <tbody>
+        ${byCompany.map((c, i) => `
+          <tr>
+            <td class="text-center" style="font-weight:bold;color:${i<3?'#FFD966':'var(--gray)'}">${i+1}位</td>
+            <td>${escapeHtml(c.companyName)}</td>
+            <td class="text-center">${c.count}回</td>
+            <td class="text-center" style="font-weight:bold;font-size:16px">${c.averageScore?.toFixed(2) ?? '―'}</td>
+            <td class="text-center">${fmtDate(c.latestDate)}</td>
+            <td>${['S','A','B','C','D'].filter(r => c.ranks[r]).map(r => `${rankBadge(r)}×${c.ranks[r]}`).join(' ')}</td>
+            <td class="text-right"><a href="/company.html?id=${c.companyId}" class="btn small secondary">詳細</a></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table></div>
+  `;
+}
+
+let trendChart = null;
+function setupTrendChart() {
+  const sel = document.getElementById('trendCompany');
+  sel.innerHTML = byCompany.map(c => `<option value="${c.companyId}">${escapeHtml(c.companyName)}</option>`).join('');
+  // 上位3社をデフォルト選択
+  byCompany.slice(0, 3).forEach(c => {
+    const opt = sel.querySelector(`option[value="${c.companyId}"]`);
+    if (opt) opt.selected = true;
+  });
+  sel.addEventListener('change', updateTrend);
+  updateTrend();
+}
+
+function updateTrend() {
+  const sel = document.getElementById('trendCompany');
+  const ids = [...sel.selectedOptions].map(o => Number(o.value));
+  const colors = ['#1F4E79','#548235','#ED7D31','#7030A0','#C00000','#FFD966','#2E75B6'];
+
+  const datasets = ids.map((id, i) => {
+    const company = companies.find(c => c.id === id);
+    const evals = allEvals.filter(e => e.companyId === id)
+      .sort((a, b) => (a.evaluationDate || '').localeCompare(b.evaluationDate || ''));
+    return {
+      label: company?.name || '',
+      data: evals.map(e => ({ x: e.evaluationDate, y: e.average })),
+      borderColor: colors[i % colors.length],
+      backgroundColor: colors[i % colors.length],
+      tension: 0.3,
+      borderWidth: 2,
+    };
+  });
+
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { type: 'category', title: { display: true, text: '評価日' } },
+        y: { beginAtZero: true, max: 5, title: { display: true, text: '平均点' } }
+      },
+      plugins: { legend: { position: 'top' } }
+    }
+  });
+}
+
+function setupTabs() {
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelector(`.tab-content[data-tab-content="${tab.dataset.tab}"]`).classList.add('active');
+    });
+  });
+}
+
+init();
+</script>
+</body>
+</html>

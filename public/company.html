@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>協力会社詳細 | 協力会社評価システム</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header class="header">
+  <h1>🏗️ 協力会社評価システム <span class="sub">ニッケン建設株式会社</span></h1>
+</header>
+<nav class="nav">
+  <a href="/">ダッシュボード</a>
+  <a href="/new.html">新規評価</a>
+  <a href="/list.html">評価一覧</a>
+  <a href="/analysis.html">分析・グラフ</a>
+  <a href="/master.html">マスタ管理</a>
+  <a href="/settings.html">設定</a>
+</nav>
+
+<div class="container">
+  <h2 class="section-title"><span id="companyName">協力会社詳細</span></h2>
+
+  <div id="companyInfo"></div>
+  <div class="stat-grid" id="stats"></div>
+
+  <div class="card">
+    <div class="card-header"><span>📈 評価推移</span></div>
+    <div class="card-body">
+      <div style="position:relative;height:300px"><canvas id="trendChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span>📊 各項目の平均（最新評価）</span></div>
+    <div class="card-body">
+      <div style="position:relative;height:300px"><canvas id="radarChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span>📄 評価履歴</span></div>
+    <div class="card-body">
+      <div id="history"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+async function init() {
+  const id = new URLSearchParams(location.search).get('id');
+  if (!id) { location.href = '/analysis.html'; return; }
+
+  const [company, evals] = await Promise.all([
+    api('GET', `/companies/${id}`),
+    api('GET', `/stats/company-history/${id}`),
+  ]);
+
+  document.getElementById('companyName').innerHTML = `🏢 ${escapeHtml(company.name)} <span style="font-size:13px;font-weight:normal" class="dim">の詳細</span>`;
+  document.title = `${company.name} | 協力会社評価システム`;
+
+  document.getElementById('companyInfo').innerHTML = `
+    <div class="card">
+      <div class="card-body">
+        <div class="form-row"><label>代表者</label><div>${escapeHtml(company.representative) || '<span class="muted">未登録</span>'}</div></div>
+        <div class="form-row"><label>電話番号</label><div>${escapeHtml(company.phone) || '<span class="muted">未登録</span>'}</div></div>
+        <div class="form-row"><label>メール</label><div>${company.email ? `<a href="mailto:${escapeHtml(company.email)}">${escapeHtml(company.email)}</a>` : '<span class="muted">未登録</span>'}</div></div>
+        <div class="form-row"><label>住所</label><div>${escapeHtml(company.address) || '<span class="muted">未登録</span>'}</div></div>
+        <div class="form-row"><label>主要工種</label><div>${escapeHtml(company.mainType) || '<span class="muted">未登録</span>'}</div></div>
+      </div>
+    </div>
+  `;
+
+  if (evals.length === 0) {
+    document.getElementById('stats').innerHTML = '<div class="alert info" style="grid-column:1/-1">この協力会社の評価はまだありません。</div>';
+    return;
+  }
+
+  const valid = evals.filter(e => e.average !== null);
+  const avg = valid.length > 0 ? valid.reduce((s, e) => s + e.average, 0) / valid.length : 0;
+  const best = valid.length > 0 ? Math.max(...valid.map(e => e.average)) : 0;
+  const worst = valid.length > 0 ? Math.min(...valid.map(e => e.average)) : 0;
+  const ranks = valid.reduce((acc, e) => { acc[e.rank] = (acc[e.rank] || 0) + 1; return acc; }, {});
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${evals.length}</div><div class="stat-label">評価回数</div></div>
+    <div class="stat-card"><div class="stat-num">${avg.toFixed(2)}</div><div class="stat-label">通算平均点</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--green)">${best.toFixed(2)}</div><div class="stat-label">最高評価</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--red)">${worst.toFixed(2)}</div><div class="stat-label">最低評価</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--gold)">${ranks.S || 0}</div><div class="stat-label">S評価</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--green)">${ranks.A || 0}</div><div class="stat-label">A評価</div></div>
+  `;
+
+  // 推移グラフ
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: evals.map(e => fmtDate(e.evaluationDate)),
+      datasets: [{
+        label: '平均点', data: evals.map(e => e.average),
+        borderColor: '#1F4E79', backgroundColor: 'rgba(31,78,121,.1)',
+        tension: 0.3, fill: true, borderWidth: 2,
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 5 } } }
+  });
+
+  // レーダーチャート（最新評価の項目別）
+  const latest = evals[evals.length - 1];
+  new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+      labels: ['予算', '品質', '工程', '安全', 'コミュ', '書類', '提案'],
+      datasets: [{
+        label: '最新評価',
+        data: [
+          latest.scoreBudget || 0, latest.scoreQuality || 0, latest.scoreSchedule || 0,
+          latest.scoreSafety || 0, latest.scoreCommunication || 0,
+          latest.scoreDocument || 0, latest.scoreProposal || 0,
+        ],
+        borderColor: '#1F4E79', backgroundColor: 'rgba(31,78,121,.2)', borderWidth: 2,
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { r: { beginAtZero: true, max: 5 } } }
+  });
+
+  // 評価履歴テーブル
+  document.getElementById('history').innerHTML = `
+    <div class="table-wrap"><table class="responsive-table">
+      <thead><tr><th>評価日</th><th>工事</th><th>工種</th><th class="text-center">合計</th><th class="text-center">平均</th><th class="text-center">評価</th><th class="text-center">状態</th><th class="text-right">操作</th></tr></thead>
+      <tbody>
+        ${[...evals].reverse().map(e => `
+          <tr>
+            <td data-label="日付">${fmtDate(e.evaluationDate)}</td>
+            <td data-label="工事">${escapeHtml(e.constructionName)}</td>
+            <td data-label="工種">${escapeHtml(e.constructionType || '')}</td>
+            <td data-label="合計" class="text-center">${e.total ?? '―'}</td>
+            <td data-label="平均" class="text-center">${e.average?.toFixed(2) ?? '―'}</td>
+            <td data-label="評価" class="text-center">${rankBadge(e.rank)}</td>
+            <td data-label="状態" class="text-center">${statusBadge(e.status)}</td>
+            <td class="text-right action-cell">
+              <a href="/new.html?id=${e.id}" class="btn small secondary">詳細</a>
+              <a href="/api/evaluations/${e.id}/excel" class="btn small">Excel</a>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table></div>
+  `;
+}
+init();
+</script>
+</body>
+</html>

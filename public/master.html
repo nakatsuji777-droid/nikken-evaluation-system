@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>マスタ管理 | 協力会社評価システム</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="header">
+  <h1>🏗️ 協力会社評価システム <span class="sub">ニッケン建設株式会社</span></h1>
+</header>
+<nav class="nav">
+  <a href="/">ダッシュボード</a>
+  <a href="/new.html">新規評価</a>
+  <a href="/list.html">評価一覧</a>
+  <a href="/analysis.html">分析・グラフ</a>
+  <a href="/master.html">マスタ管理</a>
+  <a href="/settings.html">設定</a>
+</nav>
+
+<div class="container">
+  <h2 class="section-title">⚙️ マスタ管理</h2>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="tabs">
+        <div class="tab active" data-tab="companies">🔵 協力会社</div>
+        <div class="tab" data-tab="constructions">🟢 工事</div>
+        <div class="tab" data-tab="construction-types">🟠 工事種別</div>
+        <div class="tab" data-tab="users">🟣 ユーザー</div>
+        <div class="tab" data-tab="comment-templates">💬 コメント定型</div>
+      </div>
+
+      <div class="tab-content active" data-tab-content="companies">
+        <div class="toolbar">
+          <div class="search-box"><input type="text" data-search="companies" placeholder="協力会社名・代表者・電話番号などで検索"></div>
+          <span class="spacer"></span>
+          <button class="btn small" onclick="addRow('companies')">➕ 追加</button>
+          <a class="btn small secondary" href="/api/companies/export-csv">📑 CSV出力</a>
+          <button class="btn small secondary" onclick="importCsv('companies')">📤 CSV取込</button>
+        </div>
+        <div id="companies-list"><div class="loading">読み込み中...</div></div>
+      </div>
+
+      <div class="tab-content" data-tab-content="constructions">
+        <div class="toolbar">
+          <div class="search-box"><input type="text" data-search="constructions" placeholder="工事名・所在地・発注者などで検索"></div>
+          <span class="spacer"></span>
+          <button class="btn small" onclick="addRow('constructions')">➕ 追加</button>
+          <a class="btn small secondary" href="/api/constructions/export-csv">📑 CSV出力</a>
+          <button class="btn small secondary" onclick="importCsv('constructions')">📤 CSV取込</button>
+        </div>
+        <div id="constructions-list"><div class="loading">読み込み中...</div></div>
+      </div>
+
+      <div class="tab-content" data-tab-content="construction-types">
+        <div class="toolbar">
+          <div class="search-box"><input type="text" data-search="construction-types" placeholder="工事種別・区分で検索"></div>
+          <span class="spacer"></span>
+          <button class="btn small" onclick="addRow('construction-types')">➕ 追加</button>
+          <a class="btn small secondary" href="/api/construction-types/export-csv">📑 CSV出力</a>
+          <button class="btn small secondary" onclick="importCsv('construction-types')">📤 CSV取込</button>
+        </div>
+        <div id="construction-types-list"><div class="loading">読み込み中...</div></div>
+      </div>
+
+      <div class="tab-content" data-tab-content="users">
+        <div class="toolbar">
+          <div class="search-box"><input type="text" data-search="users" placeholder="氏名・役職・メールなどで検索"></div>
+          <span class="spacer"></span>
+          <button class="btn small" onclick="addRow('users')">➕ 追加</button>
+          <a class="btn small secondary" href="/api/users/export-csv">📑 CSV出力</a>
+          <button class="btn small secondary" onclick="importCsv('users')">📤 CSV取込</button>
+        </div>
+        <div id="users-list"><div class="loading">読み込み中...</div></div>
+      </div>
+
+      <div class="tab-content" data-tab-content="comment-templates">
+        <div class="toolbar">
+          <div class="search-box"><input type="text" data-search="comment-templates" placeholder="コメント本文・カテゴリで検索"></div>
+          <span class="spacer"></span>
+          <button class="btn small" onclick="addRow('comment-templates')">➕ 追加</button>
+          <a class="btn small secondary" href="/api/comment-templates/export-csv">📑 CSV出力</a>
+          <button class="btn small secondary" onclick="importCsv('comment-templates')">📤 CSV取込</button>
+        </div>
+        <div id="comment-templates-list"><div class="loading">読み込み中...</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+const SCHEMAS = {
+  'companies': {
+    fields: [
+      { key: 'name', label: '協力会社名', type: 'text', required: true, width: 200 },
+      { key: 'representative', label: '代表者', type: 'text', width: 120 },
+      { key: 'phone', label: '電話番号', type: 'tel', width: 130 },
+      { key: 'email', label: 'メール', type: 'email', width: 200 },
+      { key: 'address', label: '住所', type: 'text', width: 200 },
+      { key: 'mainType', label: '主要工種', type: 'text', width: 100 },
+      { key: 'notes', label: '備考', type: 'text', width: 150 },
+    ],
+    title: '協力会社マスタ'
+  },
+  'constructions': {
+    fields: [
+      { key: 'name', label: '工事名', type: 'text', required: true, width: 250 },
+      { key: 'location', label: '所在地', type: 'text', width: 200 },
+      { key: 'startDate', label: '着工日', type: 'date', width: 130 },
+      { key: 'endDate', label: '完了予定日', type: 'date', width: 130 },
+      { key: 'client', label: '発注者', type: 'text', width: 130 },
+      { key: 'manager', label: '工事責任者', type: 'text', width: 100 },
+      { key: 'status', label: '状態', type: 'select', options: ['進行中','完了','中止','予定'], width: 100 },
+      { key: 'notes', label: '備考', type: 'text', width: 150 },
+    ],
+    title: '工事マスタ'
+  },
+  'construction-types': {
+    fields: [
+      { key: 'name', label: '工事種別', type: 'text', required: true, width: 150 },
+      { key: 'category', label: '区分', type: 'select', options: ['土木','躯体','仕上','設備','その他'], width: 120 },
+      { key: 'notes', label: '備考', type: 'text', width: 200 },
+    ],
+    title: '工事種別マスタ'
+  },
+  'users': {
+    fields: [
+      { key: 'name', label: '氏名', type: 'text', required: true, width: 130 },
+      { key: 'position', label: '役職', type: 'text', width: 100 },
+      { key: 'department', label: '所属', type: 'text', width: 100 },
+      { key: 'email', label: 'メール', type: 'email', width: 200 },
+      { key: 'role', label: '権限', type: 'select', options: ['管理者','工事部長','現場責任者','閲覧のみ'], width: 120 },
+      { key: 'notes', label: '備考', type: 'text', width: 150 },
+    ],
+    title: 'ユーザーマスタ'
+  },
+  'comment-templates': {
+    fields: [
+      { key: 'category', label: 'カテゴリ', type: 'select',
+        options: ['budget','quality','schedule','safety','communication','document','proposal','good','improve','expectation'],
+        labels: { budget: '①予算', quality: '②品質', schedule: '③工程', safety: '④安全', communication: '⑤コミュ', document: '⑥書類', proposal: '⑦提案', good: '良かった点', improve: '改善点', expectation: '期待・要望' },
+        required: true, width: 130 },
+      { key: 'text', label: 'コメント文', type: 'text', required: true, width: 500 },
+    ],
+    title: 'コメント定型例'
+  },
+};
+
+let cache = {};
+let searchText = {};
+let sortState = {};
+
+async function loadAll() {
+  for (const name of Object.keys(SCHEMAS)) {
+    cache[name] = await api('GET', '/' + name);
+    sortState[name] = { by: 'id', dir: 'asc' };
+    renderTab(name);
+  }
+}
+
+function renderTab(name) {
+  const schema = SCHEMAS[name];
+  let items = [...(cache[name] || [])];
+
+  // 検索
+  const text = (searchText[name] || '').toLowerCase().trim();
+  if (text) {
+    items = items.filter(item => {
+      return schema.fields.some(f => String(item[f.key] || '').toLowerCase().includes(text));
+    });
+  }
+
+  // ソート
+  const { by, dir } = sortState[name];
+  const d = dir === 'asc' ? 1 : -1;
+  items.sort((a, b) => {
+    const av = a[by] ?? ''; const bv = b[by] ?? '';
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * d;
+    return String(av).localeCompare(String(bv)) * d;
+  });
+
+  const container = document.getElementById(name + '-list');
+  if (items.length === 0) {
+    container.innerHTML = `<div class="empty">${text ? '該当するデータがありません' : 'データがありません'}</div>`;
+    return;
+  }
+  const sortHeader = (key, label) => {
+    const cur = by === key ? (dir === 'asc' ? '▲' : '▼') : '▲▼';
+    return `<th class="sortable ${by === key ? 'sorted' : ''}" onclick="changeSort('${name}', '${key}')">${label}<span class="sort-arrow">${cur}</span></th>`;
+  };
+
+  container.innerHTML = `
+    <div class="table-wrap">
+    <table>
+      <thead><tr>
+        ${sortHeader('id', 'No')}
+        ${schema.fields.map(f => `<th style="min-width:${f.width}px" class="sortable ${by === f.key ? 'sorted' : ''}" onclick="changeSort('${name}', '${f.key}')">${f.label}<span class="sort-arrow">${by === f.key ? (dir === 'asc' ? '▲' : '▼') : '▲▼'}</span></th>`).join('')}
+        <th class="text-right" style="width:120px">操作</th>
+      </tr></thead>
+      <tbody>
+        ${items.map(item => `
+          <tr>
+            <td class="text-center">${item.id}</td>
+            ${schema.fields.map(f => `<td>${renderCell(item[f.key], f)}</td>`).join('')}
+            <td class="text-right">
+              <button class="btn small secondary" onclick="editRow('${name}', ${item.id})">編集</button>
+              <button class="btn small danger" onclick="deleteRow('${name}', ${item.id})">削除</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    </div>
+    <div class="dim mt-8" style="font-size:13px">${items.length}件</div>
+  `;
+}
+
+window.changeSort = (name, key) => {
+  if (sortState[name].by === key) sortState[name].dir = sortState[name].dir === 'asc' ? 'desc' : 'asc';
+  else sortState[name] = { by: key, dir: 'asc' };
+  renderTab(name);
+};
+
+function renderCell(value, field) {
+  if (!value && value !== 0) return '<span class="muted">―</span>';
+  if (field.labels && field.labels[value]) return field.labels[value];
+  return escapeHtml(String(value));
+}
+
+function editRow(name, id) {
+  const schema = SCHEMAS[name];
+  const item = cache[name].find(x => x.id === id);
+  showModal(schema, item, async (data) => {
+    await api('PUT', `/${name}/${id}`, data);
+    cache[name] = await api('GET', '/' + name);
+    renderTab(name);
+    toast('更新しました', 'success');
+  });
+}
+
+function addRow(name) {
+  const schema = SCHEMAS[name];
+  showModal(schema, {}, async (data) => {
+    await api('POST', '/' + name, data);
+    cache[name] = await api('GET', '/' + name);
+    renderTab(name);
+    toast('追加しました', 'success');
+  });
+}
+
+async function deleteRow(name, id) {
+  if (!await confirmDialog('削除します。よろしいですか？', { dangerous: true, okLabel: '削除' })) return;
+  await api('DELETE', `/${name}/${id}`);
+  cache[name] = await api('GET', '/' + name);
+  renderTab(name);
+  toast('削除しました', 'success');
+}
+
+function showModal(schema, item, onSave) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="card-header"><span>${item.id ? '編集' : '新規追加'}：${schema.title}</span></div>
+    <div class="card-body">
+      ${schema.fields.map(f => `
+        <div class="form-row">
+          <label>${f.label}${f.required ? ' <span style="color:red">*</span>' : ''}</label>
+          ${f.type === 'select'
+              ? `<select name="${f.key}">${f.options.map(o => `<option value="${o}" ${item[f.key]===o?'selected':''}>${f.labels?.[o] || o}</option>`).join('')}</select>`
+              : `<input type="${f.type}" name="${f.key}" value="${escapeHtml(item[f.key] || '')}" ${f.required ? 'required' : ''}>`}
+        </div>
+      `).join('')}
+      <div class="btn-group" style="margin-top:16px;justify-content:flex-end">
+        <button class="btn secondary" id="cancelBtn">キャンセル</button>
+        <button class="btn" id="saveBtn">保存</button>
+      </div>
+    </div>
+  `;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  modal.querySelector('#cancelBtn').onclick = () => overlay.remove();
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  modal.querySelector('#saveBtn').onclick = async () => {
+    const data = {};
+    let valid = true;
+    schema.fields.forEach(f => {
+      const el = modal.querySelector(`[name="${f.key}"]`);
+      data[f.key] = el.value;
+      if (f.required && !data[f.key]) {
+        toast(`${f.label}を入力してください`, 'error');
+        valid = false;
+      }
+    });
+    if (!valid) return;
+    try {
+      await onSave(data);
+      overlay.remove();
+    } catch (e) {
+      toast('エラー: ' + e.message, 'error');
+    }
+  };
+}
+
+window.importCsv = (name) => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.csv,text/csv';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const csv = await file.text();
+    if (!await confirmDialog(`CSVを取り込みます（${file.name}）。\n同名のレコードは更新、新規は追加されます。続行しますか？`)) return;
+    try {
+      const result = await api('POST', `/${name}/import-csv`, { csv });
+      toast(`取込完了：新規${result.inserted}件、更新${result.updated}件`, 'success');
+      cache[name] = await api('GET', '/' + name);
+      renderTab(name);
+    } catch (e) {
+      toast('取込エラー：' + e.message, 'error');
+    }
+  };
+  input.click();
+};
+
+// 検索
+document.querySelectorAll('[data-search]').forEach(input => {
+  input.addEventListener('input', debounce(() => {
+    searchText[input.dataset.search] = input.value;
+    renderTab(input.dataset.search);
+  }, 200));
+});
+
+// タブ切り替え
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelector(`.tab-content[data-tab-content="${tab.dataset.tab}"]`).classList.add('active');
+  });
+});
+
+loadAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>設定 | 協力会社評価システム</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="header">
+  <h1>🏗️ 協力会社評価システム <span class="sub">ニッケン建設株式会社</span></h1>
+</header>
+<nav class="nav">
+  <a href="/">ダッシュボード</a>
+  <a href="/new.html">新規評価</a>
+  <a href="/list.html">評価一覧</a>
+  <a href="/analysis.html">分析・グラフ</a>
+  <a href="/master.html">マスタ管理</a>
+  <a href="/settings.html">設定</a>
+</nav>
+
+<div class="container">
+  <h2 class="section-title">⚙️ 設定</h2>
+
+  <div class="card">
+    <div class="card-header"><span>💾 バックアップ・復元</span></div>
+    <div class="card-body">
+      <p class="dim">全データ（評価・マスタ）をzipファイルでバックアップできます。定期的なバックアップを推奨します。</p>
+      <div class="btn-group">
+        <a href="/api/backup/download" class="btn success">📥 バックアップをダウンロード</a>
+      </div>
+      <div class="alert info mt-16">
+        <strong>復元方法：</strong><br>
+        1. サーバー（起動.bat）を停止<br>
+        2. <code>webapp/data/</code> フォルダ内のJSONファイルを、バックアップzipの中身で上書き<br>
+        3. サーバーを再起動
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span>🎨 表示設定</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <label>ダークモード</label>
+        <div><button class="btn secondary" onclick="toggleDarkMode()">🌓 切替</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span>📋 操作ログ（最新200件）</span></div>
+    <div class="card-body">
+      <div id="logs"><div class="loading">読み込み中...</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span>ℹ️ システム情報</span></div>
+    <div class="card-body">
+      <div class="form-row"><label>バージョン</label><div>1.0.0</div></div>
+      <div class="form-row"><label>サーバーURL</label><div><code>http://localhost:3000</code></div></div>
+      <div class="form-row"><label>データ保存場所</label><div><code>webapp/data/</code></div></div>
+      <div class="form-row"><label>Excel テンプレート</label><div><code>webapp/templates/template.xlsx</code></div></div>
+      <div id="dbStats"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+async function init() {
+  const [logs, summary] = await Promise.all([
+    api('GET', '/logs'),
+    api('GET', '/stats/summary'),
+  ]);
+
+  document.getElementById('dbStats').innerHTML = `
+    <div class="form-row"><label>登録評価数</label><div>${summary.totalEvaluations}件</div></div>
+    <div class="form-row"><label>登録協力会社数</label><div>${summary.totalCompanies}社</div></div>
+  `;
+
+  const fmt = (s) => {
+    const d = new Date(s);
+    return d.toLocaleString('ja-JP');
+  };
+  document.getElementById('logs').innerHTML = logs.length === 0
+    ? '<div class="empty">ログはまだありません</div>'
+    : `<div class="table-wrap"><table>
+        <thead><tr><th>日時</th><th>操作</th><th>対象</th><th>詳細</th></tr></thead>
+        <tbody>${logs.map(l => `
+          <tr><td>${fmt(l.timestamp)}</td><td>${escapeHtml(l.action)}</td><td>${escapeHtml(l.target)}</td><td><small>${escapeHtml(l.details)}</small></td></tr>
+        `).join('')}</tbody>
+      </table></div>`;
+}
+init();
+</script>
+</body>
+</html>

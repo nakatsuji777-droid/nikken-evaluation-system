@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ヘルプ | 協力会社評価システム</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="header">
+  <h1>🏗️ 協力会社評価システム <span class="sub">ニッケン建設株式会社</span></h1>
+</header>
+<nav class="nav">
+  <a href="/">ダッシュボード</a>
+  <a href="/new.html">新規評価</a>
+  <a href="/list.html">評価一覧</a>
+  <a href="/analysis.html">分析・グラフ</a>
+  <a href="/master.html">マスタ管理</a>
+  <a href="/settings.html">設定</a>
+</nav>
+
+<div class="container">
+  <h2 class="section-title">❓ 使い方ガイド</h2>
+
+  <div class="card">
+    <div class="card-header"><span>🚀 最短で評価を1件作成する手順</span></div>
+    <div class="card-body">
+      <ol style="line-height:2">
+        <li><a href="/new.html">「新規評価」</a>をクリック</li>
+        <li>協力会社・工事を選択（マスタにない場合は「+」ボタンで即時追加）</li>
+        <li>各評価項目で1〜5の点数ボタンをクリック（または<strong>キーボードの1〜5キー</strong>を押下）</li>
+        <li>必要ならコメント欄に「▼定型例」から選択 or 自由記入</li>
+        <li><strong>「💾 保存（Ctrl+S）」</strong>ボタン</li>
+        <li>「📥 Excel出力」で従来フォーマットのExcelをダウンロード</li>
+        <li>「📧 メール作成」で協力会社宛のメール下書きを生成</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span>⌨️ キーボードショートカット</span></div>
+    <div class="card-body">
+      <div class="form-row"><label><kbd>Ctrl + S</kbd></label><div>保存</div></div>
+      <div class="form-row"><label><kbd>1</kbd> 〜 <kbd>5</kbd></label><div>マウスをホバー中の評価項目に点数を入力</div></div>
+      <div class="form-row"><label><kbd>Esc</kbd></label><div>モーダルを閉じる</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span>💡 便利な機能</span></div>
+    <div class="card-body">
+      <ul style="line-height:2">
+        <li><strong>オートセーブ</strong>：新規入力中に2秒間操作がないと自動的に下書き保存。ページを閉じても復元されます</li>
+        <li><strong>重複検出</strong>：同じ協力会社×工事の評価が既にある場合、警告表示</li>
+        <li><strong>一括点数設定</strong>：「全て5」「全て4」「全て3」「クリア」ボタンで素早く入力</li>
+        <li><strong>工期自動補完</strong>：工事マスタに着工日・完了日があれば、工事選択時に自動入力</li>
+        <li><strong>マスタ即時追加</strong>：協力会社・工事・工事種別が一覧にない場合、「+」ボタンでその場で追加</li>
+        <li><strong>一括Excel出力</strong>：一覧画面で複数選択 →「ZIPで一括ダウンロード」</li>
+        <li><strong>全文検索</strong>：一覧画面の検索ボックスはコメント欄まで全文検索</li>
+        <li><strong>ステータス管理</strong>：下書き／提出済／承認済／送付済 でワークフロー管理</li>
+        <li><strong>メール送信支援</strong>：協力会社のメールアドレスが登録されていれば、件名・本文プリセット済みのメール下書きを自動生成</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span>📊 評価ロジック</span></div>
+    <div class="card-body">
+      <div class="alert info">
+        <strong>5段階評価：</strong> 5=最高 / 4=良好 / 3=標準 / 2=要改善 / 1=大幅な改善必要
+      </div>
+      <table>
+        <thead><tr><th>総合評価</th><th>判定（平均点）</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td><span class="rank-badge rank-S">S</span></td><td>平均5.0</td><td>最優秀（総会で表彰）</td></tr>
+          <tr><td><span class="rank-badge rank-A">A</span></td><td>平均4.2以上</td><td>優れた協力会社</td></tr>
+          <tr><td><span class="rank-badge rank-B">B</span></td><td>平均3.4以上</td><td>良好</td></tr>
+          <tr><td><span class="rank-badge rank-C">C</span></td><td>平均2.6以上</td><td>改善の余地あり</td></tr>
+          <tr><td><span class="rank-badge rank-D">D</span></td><td>平均2.6未満</td><td>大きな課題あり</td></tr>
+        </tbody>
+      </table>
+      <div class="alert warning mt-16">
+        <strong>例外ルール：</strong> 1項目でも「1」評価がある場合はD、「2」評価がある場合はC以下に降格
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span>🔄 マスタCSV取込</span></div>
+    <div class="card-body">
+      <ol style="line-height:2">
+        <li>マスタ管理画面で「📑 CSV出力」を押下 → 現状のCSVをダウンロード</li>
+        <li>Excel等で編集（Excelで開く際は文字化けに注意。UTF-8 BOM付きで出力済）</li>
+        <li>「📤 CSV取込」を押下 → 編集したCSVを選択</li>
+        <li>同名のレコードは更新、新規は追加されます</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span>💾 バックアップのおすすめ運用</span></div>
+    <div class="card-body">
+      <ul style="line-height:2">
+        <li>毎週・毎月など定期的に<a href="/settings.html">設定画面</a>から「バックアップをダウンロード」</li>
+        <li>OneDrive・Googleドライブなどクラウドに保管推奨</li>
+        <li>復元方法は設定画面に記載</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+</body>
+</html>
