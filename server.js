@@ -313,33 +313,167 @@ app.delete('/api/evaluations/:id', async (req, res) => {
 async function buildExcel(evaluation) {
   const company = await db.companies.find(evaluation.companyId);
   const construction = await db.constructions.find(evaluation.constructionId);
-
-  const templatePath = path.join(__dirname, 'templates', 'template.xlsx');
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.readFile(templatePath);
-  const ws = wb.getWorksheet('評価シート');
-
   const dt = evaluation.evaluationDate ? new Date(evaluation.evaluationDate) : new Date();
-  ws.getCell('A2').value = `評価日：${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日`;
-  ws.getCell('C5').value = company?.name || '';
-  ws.getCell('C6').value = construction?.name || '';
-  ws.getCell('C7').value = evaluation.constructionType || '';
-  ws.getCell('C8').value = evaluation.period || '';
-  ws.getCell('C9').value = evaluation.evaluator || '';
-  ws.getCell('C10').value = evaluation.approver || '';
 
-  const scoreMap = { D14: 'scoreBudget', D15: 'scoreQuality', D16: 'scoreSchedule', D17: 'scoreSafety', D18: 'scoreCommunication', D19: 'scoreDocument', D20: 'scoreProposal' };
-  for (const [cell, key] of Object.entries(scoreMap)) {
-    if (evaluation[key]) ws.getCell(cell).value = Number(evaluation[key]);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('評価シート');
+
+  // --- A4 portrait print setup ---
+  ws.pageSetup = {
+    paperSize: 9, orientation: 'portrait',
+    fitToPage: true, fitToWidth: 1, fitToHeight: 1,
+    margins: { left: 0.4, right: 0.4, top: 0.3, bottom: 0.3, header: 0.1, footer: 0.1 },
+    horizontalCentered: true, showGridLines: false, showRowColHeaders: false,
+  };
+  ws.properties.defaultRowHeight = 15;
+
+  // --- Column widths (5 columns, total ~80 chars ≈ A4 width) ---
+  ws.columns = [
+    { width: 5 },   // A: No
+    { width: 18 },  // B: 項目名
+    { width: 30 },  // C: 視点 / 値
+    { width: 6 },   // D: 評価点
+    { width: 30 },  // E: コメント
+  ];
+
+  const thin = { style: 'thin', color: { argb: 'FF333333' } };
+  const border = { top: thin, left: thin, bottom: thin, right: thin };
+  const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
+  const headerFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Meiryo UI' };
+  const baseFont = { size: 9, name: 'Meiryo UI' };
+  const boldFont = { ...baseFont, bold: true };
+  const titleFont = { bold: true, size: 14, name: 'Meiryo UI' };
+  const lightFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F7FB' } };
+  const wrapAlign = { vertical: 'middle', wrapText: true };
+
+  function setRow(r, vals, opts = {}) {
+    const row = ws.getRow(r);
+    vals.forEach((v, i) => {
+      const cell = row.getCell(i + 1);
+      cell.value = v;
+      cell.font = opts.font || baseFont;
+      cell.alignment = opts.align || { vertical: 'middle' };
+      if (opts.border) cell.border = border;
+      if (opts.fill) cell.fill = opts.fill;
+    });
+    if (opts.height) row.height = opts.height;
+    return row;
   }
-  const commentMap = { E14: 'commentBudget', E15: 'commentQuality', E16: 'commentSchedule', E17: 'commentSafety', E18: 'commentCommunication', E19: 'commentDocument', E20: 'commentProposal' };
-  for (const [cell, key] of Object.entries(commentMap)) {
-    ws.getCell(cell).value = evaluation[key] || '';
-  }
-  ws.getCell('C29').value = evaluation.overallGood || '';
-  ws.getCell('C30').value = evaluation.overallImprove || '';
-  ws.getCell('C31').value = evaluation.overallExpectation || '';
-  ws.getCell('A36').value = evaluation.reply || '';
+
+  function mergeFull(r) { ws.mergeCells(`A${r}:E${r}`); }
+  function mergeAB(r) { ws.mergeCells(`A${r}:B${r}`); }
+  function mergeCE(r) { ws.mergeCells(`C${r}:E${r}`); }
+
+  // Row 1: Title
+  mergeFull(1);
+  setRow(1, ['ニッケン建設株式会社　協力会社評価シート'], { font: titleFont, height: 28, align: { horizontal: 'center', vertical: 'middle' } });
+
+  // Row 2: Date
+  mergeFull(2);
+  setRow(2, [`評価日：${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日`], { font: { ...baseFont, size: 10 }, height: 18, align: { horizontal: 'right', vertical: 'middle' } });
+
+  // Row 3: Section header
+  mergeFull(3);
+  setRow(3, ['■ 基本情報'], { font: headerFont, fill: headerFill, height: 20, border: true });
+
+  // Rows 4-9: Basic info
+  const infoRows = [
+    ['協力会社名', company?.name || ''],
+    ['工事名', construction?.name || ''],
+    ['工事種別', evaluation.constructionType || ''],
+    ['工期', evaluation.period || ''],
+    ['評価者（現場責任者）', evaluation.evaluator || ''],
+    ['承認者（工事部長）', evaluation.approver || ''],
+  ];
+  infoRows.forEach((row, i) => {
+    const r = 4 + i;
+    setRow(r, [row[0], '', row[1]], { border: true, height: 17, fill: i % 2 === 0 ? lightFill : undefined });
+    ws.getCell(`A${r}`).font = boldFont;
+    mergeAB(r); mergeCE(r);
+  });
+
+  // Row 10: Section header
+  mergeFull(10);
+  setRow(10, ['■ 評価項目（5段階：1=要改善 ～ 5=期待を上回る）'], { font: headerFont, fill: headerFill, height: 20, border: true });
+
+  // Row 11: Column headers
+  setRow(11, ['No', '評価項目', '評価の視点', '評価', 'コメント'], { font: { ...boldFont, size: 8 }, border: true, height: 16, align: { horizontal: 'center', vertical: 'middle' } });
+
+  // Rows 12-18: Score items
+  const items = [
+    [1, '予算・コスト対応', '厳しい予算にも柔軟に対応いただけたか', 'scoreBudget', 'commentBudget'],
+    [2, '品質', '仕上がりは丁寧で品質基準を満たしていたか', 'scoreQuality', 'commentQuality'],
+    [3, '工程・納期', '予定工程を守り作業を進めていただけたか', 'scoreSchedule', 'commentSchedule'],
+    [4, '安全管理', '安全意識は高く保護具着用等徹底されていたか', 'scoreSafety', 'commentSafety'],
+    [5, '現場対応・コミュニケーション', '他業者・当社担当者との意思疎通は円滑だったか', 'scoreCommunication', 'commentCommunication'],
+    [6, '書類・報告対応', '必要書類が期日までに提出されたか', 'scoreDocument', 'commentDocument'],
+    [7, '改善提案・技術力', '有益な提案や高い技術力の発揮があったか', 'scoreProposal', 'commentProposal'],
+  ];
+  items.forEach((item, i) => {
+    const r = 12 + i;
+    const score = evaluation[item[3]] ? Number(evaluation[item[3]]) : '';
+    const comment = evaluation[item[4]] || '';
+    setRow(r, [item[0], item[1], item[2], score, comment], { border: true, height: 20, fill: i % 2 === 0 ? lightFill : undefined, align: wrapAlign });
+    ws.getCell(`A${r}`).alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getCell(`D${r}`).alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getCell(`D${r}`).font = { ...boldFont, size: 12 };
+    ws.getCell(`E${r}`).font = { ...baseFont, size: 8 };
+  });
+
+  // Row 19: Section header
+  mergeFull(19);
+  setRow(19, ['■ 総合評価'], { font: headerFont, fill: headerFill, height: 20, border: true });
+
+  // Row 20: Summary scores
+  const total = evaluation.total || '';
+  const avg = evaluation.average || '';
+  const rank = evaluation.rank || '';
+  setRow(20, ['合計点', `${total} / 35`, '平均点', avg, ''], { border: true, height: 22 });
+  ws.getCell('A20').font = boldFont;
+  ws.getCell('C20').font = boldFont;
+  ws.getCell('B20').alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getCell('D20').alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getCell('D20').font = { ...boldFont, size: 11 };
+  ws.getCell('E20').value = `総合ランク：${rank}`;
+  ws.getCell('E20').font = { bold: true, size: 14, name: 'Meiryo UI', color: { argb: rank === 'S' ? 'FFFF8C00' : rank === 'A' ? 'FF008000' : rank === 'D' ? 'FFCC0000' : 'FF1B4F72' } };
+  ws.getCell('E20').alignment = { horizontal: 'center', vertical: 'middle' };
+
+  // Row 21: Criteria note
+  mergeFull(21);
+  setRow(21, ['S:平均5.0(全満点) / A:4.2以上 / B:3.4以上 / C:2.6以上 / D:2.6未満  ※1評価→D, 2評価→C以下'], { font: { ...baseFont, size: 7, color: { argb: 'FF666666' } }, height: 14 });
+
+  // Row 22: Section header
+  mergeFull(22);
+  setRow(22, ['■ 総評（現場責任者コメント）'], { font: headerFont, fill: headerFill, height: 20, border: true });
+
+  // Rows 23-25: Comments
+  const commentRows = [
+    ['良かった点', evaluation.overallGood || ''],
+    ['改善をお願いしたい点', evaluation.overallImprove || ''],
+    ['次回への期待・要望', evaluation.overallExpectation || ''],
+  ];
+  commentRows.forEach((row, i) => {
+    const r = 23 + i;
+    setRow(r, [row[0], '', row[1]], { border: true, height: 28, align: wrapAlign });
+    ws.getCell(`A${r}`).font = boldFont;
+    ws.getCell(`C${r}`).font = { ...baseFont, size: 8 };
+    mergeAB(r); mergeCE(r);
+  });
+
+  // Row 26: Section header
+  mergeFull(26);
+  setRow(26, ['■ 返信欄（協力会社様からのご意見・ご感想）'], { font: headerFont, fill: headerFill, height: 20, border: true });
+
+  // Row 27: Reply
+  mergeFull(27);
+  setRow(27, [evaluation.reply || ''], { border: true, height: 40, align: wrapAlign });
+
+  // Row 28: Footer
+  mergeFull(28);
+  setRow(28, ['ニッケン建設株式会社'], { font: { ...baseFont, size: 8, color: { argb: 'FF999999' } }, height: 14, align: { horizontal: 'right', vertical: 'middle' } });
+
+  // Print area
+  ws.pageSetup.printArea = 'A1:E28';
 
   return { wb, filename: `評価シート_${(company?.name || 'unknown')}_${dt.toISOString().slice(0, 10)}.xlsx` };
 }
