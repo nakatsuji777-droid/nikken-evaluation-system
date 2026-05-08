@@ -323,27 +323,27 @@ async function buildExcel(evaluation) {
   ws.pageSetup = {
     paperSize: 9, orientation: 'portrait',
     fitToPage: true, fitToWidth: 1, fitToHeight: 1,
-    margins: { left: 0.4, right: 0.4, top: 0.3, bottom: 0.3, header: 0.1, footer: 0.1 },
+    margins: { left: 0.6, right: 0.6, top: 0.5, bottom: 0.4, header: 0.2, footer: 0.2 },
     horizontalCentered: true, showGridLines: false, showRowColHeaders: false,
   };
-  ws.properties.defaultRowHeight = 15;
+  ws.properties.defaultRowHeight = 18;
 
-  // --- Column widths (5 columns, total ~80 chars ≈ A4 width) ---
+  // --- Column widths (5 columns, A4 width) ---
   ws.columns = [
     { width: 5 },   // A: No
-    { width: 18 },  // B: 項目名
-    { width: 30 },  // C: 視点 / 値
-    { width: 6 },   // D: 評価点
-    { width: 30 },  // E: コメント
+    { width: 20 },  // B: 項目名
+    { width: 32 },  // C: 視点 / 値
+    { width: 7 },   // D: 評価点
+    { width: 32 },  // E: コメント
   ];
 
-  const thin = { style: 'thin', color: { argb: 'FF333333' } };
+  const thin = { style: 'thin', color: { argb: 'FF999999' } };
   const border = { top: thin, left: thin, bottom: thin, right: thin };
   const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
-  const headerFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Meiryo UI' };
-  const baseFont = { size: 9, name: 'Meiryo UI' };
+  const headerFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11, name: 'Meiryo UI' };
+  const baseFont = { size: 10, name: 'Meiryo UI' };
   const boldFont = { ...baseFont, bold: true };
-  const titleFont = { bold: true, size: 14, name: 'Meiryo UI' };
+  const titleFont = { bold: true, size: 16, name: 'Meiryo UI', color: { argb: 'FF1B4F72' } };
   const lightFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F7FB' } };
   const wrapAlign = { vertical: 'middle', wrapText: true };
 
@@ -367,15 +367,15 @@ async function buildExcel(evaluation) {
 
   // Row 1: Title
   mergeFull(1);
-  setRow(1, ['ニッケン建設株式会社　協力会社評価シート'], { font: titleFont, height: 28, align: { horizontal: 'center', vertical: 'middle' } });
+  setRow(1, ['ニッケン建設株式会社　協力会社評価シート'], { font: titleFont, height: 42, align: { horizontal: 'center', vertical: 'middle' } });
 
   // Row 2: Date
   mergeFull(2);
-  setRow(2, [`評価日：${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日`], { font: { ...baseFont, size: 10 }, height: 18, align: { horizontal: 'right', vertical: 'middle' } });
+  setRow(2, [`評価日：${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日`], { font: { ...baseFont, size: 10 }, height: 22, align: { horizontal: 'right', vertical: 'middle' } });
 
   // Row 3: Section header
   mergeFull(3);
-  setRow(3, ['■ 基本情報'], { font: headerFont, fill: headerFill, height: 20, border: true });
+  setRow(3, ['■ 基本情報'], { font: headerFont, fill: headerFill, height: 24, border: true });
 
   // Rows 4-9: Basic info
   const infoRows = [
@@ -388,17 +388,17 @@ async function buildExcel(evaluation) {
   ];
   infoRows.forEach((row, i) => {
     const r = 4 + i;
-    setRow(r, [row[0], '', row[1]], { border: true, height: 17, fill: i % 2 === 0 ? lightFill : undefined });
+    setRow(r, [row[0], '', row[1]], { border: true, height: 22, fill: i % 2 === 0 ? lightFill : undefined });
     ws.getCell(`A${r}`).font = boldFont;
     mergeAB(r); mergeCE(r);
   });
 
   // Row 10: Section header
   mergeFull(10);
-  setRow(10, ['■ 評価項目（5段階：1=要改善 ～ 5=期待を上回る）'], { font: headerFont, fill: headerFill, height: 20, border: true });
+  setRow(10, ['■ 評価項目（5段階：1=要改善 ～ 5=期待を上回る）'], { font: headerFont, fill: headerFill, height: 24, border: true });
 
   // Row 11: Column headers
-  setRow(11, ['No', '評価項目', '評価の視点', '評価', 'コメント'], { font: { ...boldFont, size: 8 }, border: true, height: 16, align: { horizontal: 'center', vertical: 'middle' } });
+  setRow(11, ['No', '評価項目', '評価の視点', '評価', 'コメント'], { font: { ...boldFont, size: 9 }, border: true, height: 20, align: { horizontal: 'center', vertical: 'middle' } });
 
   // Rows 12-18: Score items
   const items = [
@@ -414,38 +414,39 @@ async function buildExcel(evaluation) {
     const r = 12 + i;
     const score = evaluation[item[3]] ? Number(evaluation[item[3]]) : '';
     const comment = evaluation[item[4]] || '';
-    setRow(r, [item[0], item[1], item[2], score, comment], { border: true, height: 20, fill: i % 2 === 0 ? lightFill : undefined, align: wrapAlign });
+    setRow(r, [item[0], item[1], item[2], score, comment], { border: true, height: 26, fill: i % 2 === 0 ? lightFill : undefined, align: wrapAlign });
     ws.getCell(`A${r}`).alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getCell(`D${r}`).alignment = { horizontal: 'center', vertical: 'middle' };
-    ws.getCell(`D${r}`).font = { ...boldFont, size: 12 };
-    ws.getCell(`E${r}`).font = { ...baseFont, size: 8 };
+    ws.getCell(`D${r}`).font = { ...boldFont, size: 14 };
+    ws.getCell(`E${r}`).font = { ...baseFont, size: 9 };
   });
 
   // Row 19: Section header
   mergeFull(19);
-  setRow(19, ['■ 総合評価'], { font: headerFont, fill: headerFill, height: 20, border: true });
+  setRow(19, ['■ 総合評価'], { font: headerFont, fill: headerFill, height: 24, border: true });
 
   // Row 20: Summary scores
   const total = evaluation.total || '';
   const avg = evaluation.average || '';
   const rank = evaluation.rank || '';
-  setRow(20, ['合計点', `${total} / 35`, '平均点', avg, ''], { border: true, height: 22 });
+  setRow(20, ['合計点', `${total} / 35`, '平均点', avg, ''], { border: true, height: 30 });
   ws.getCell('A20').font = boldFont;
   ws.getCell('C20').font = boldFont;
   ws.getCell('B20').alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getCell('B20').font = { ...boldFont, size: 12 };
   ws.getCell('D20').alignment = { horizontal: 'center', vertical: 'middle' };
-  ws.getCell('D20').font = { ...boldFont, size: 11 };
+  ws.getCell('D20').font = { ...boldFont, size: 12 };
   ws.getCell('E20').value = `総合ランク：${rank}`;
-  ws.getCell('E20').font = { bold: true, size: 14, name: 'Meiryo UI', color: { argb: rank === 'S' ? 'FFFF8C00' : rank === 'A' ? 'FF008000' : rank === 'D' ? 'FFCC0000' : 'FF1B4F72' } };
+  ws.getCell('E20').font = { bold: true, size: 16, name: 'Meiryo UI', color: { argb: rank === 'S' ? 'FFFF8C00' : rank === 'A' ? 'FF008000' : rank === 'D' ? 'FFCC0000' : 'FF1B4F72' } };
   ws.getCell('E20').alignment = { horizontal: 'center', vertical: 'middle' };
 
   // Row 21: Criteria note
   mergeFull(21);
-  setRow(21, ['S:平均5.0(全満点) / A:4.2以上 / B:3.4以上 / C:2.6以上 / D:2.6未満  ※1評価→D, 2評価→C以下'], { font: { ...baseFont, size: 7, color: { argb: 'FF666666' } }, height: 14 });
+  setRow(21, ['S:平均5.0(全満点) / A:4.2以上 / B:3.4以上 / C:2.6以上 / D:2.6未満  ※1評価→D, 2評価→C以下'], { font: { ...baseFont, size: 8, color: { argb: 'FF666666' } }, height: 18 });
 
   // Row 22: Section header
   mergeFull(22);
-  setRow(22, ['■ 総評（現場責任者コメント）'], { font: headerFont, fill: headerFill, height: 20, border: true });
+  setRow(22, ['■ 総評（現場責任者コメント）'], { font: headerFont, fill: headerFill, height: 24, border: true });
 
   // Rows 23-25: Comments
   const commentRows = [
@@ -455,23 +456,23 @@ async function buildExcel(evaluation) {
   ];
   commentRows.forEach((row, i) => {
     const r = 23 + i;
-    setRow(r, [row[0], '', row[1]], { border: true, height: 28, align: wrapAlign });
+    setRow(r, [row[0], '', row[1]], { border: true, height: 36, align: wrapAlign });
     ws.getCell(`A${r}`).font = boldFont;
-    ws.getCell(`C${r}`).font = { ...baseFont, size: 8 };
+    ws.getCell(`C${r}`).font = { ...baseFont, size: 9 };
     mergeAB(r); mergeCE(r);
   });
 
   // Row 26: Section header
   mergeFull(26);
-  setRow(26, ['■ 返信欄（協力会社様からのご意見・ご感想）'], { font: headerFont, fill: headerFill, height: 20, border: true });
+  setRow(26, ['■ 返信欄（協力会社様からのご意見・ご感想）'], { font: headerFont, fill: headerFill, height: 24, border: true });
 
   // Row 27: Reply
   mergeFull(27);
-  setRow(27, [evaluation.reply || ''], { border: true, height: 40, align: wrapAlign });
+  setRow(27, [evaluation.reply || ''], { border: true, height: 60, align: wrapAlign });
 
   // Row 28: Footer
   mergeFull(28);
-  setRow(28, ['ニッケン建設株式会社'], { font: { ...baseFont, size: 8, color: { argb: 'FF999999' } }, height: 14, align: { horizontal: 'right', vertical: 'middle' } });
+  setRow(28, ['ニッケン建設株式会社'], { font: { ...baseFont, size: 9, color: { argb: 'FF888888' } }, height: 20, align: { horizontal: 'right', vertical: 'middle' } });
 
   // Print area
   ws.pageSetup.printArea = 'A1:E28';
