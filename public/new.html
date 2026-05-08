@@ -204,7 +204,10 @@ async function init() {
   document.getElementById('saveBtn').addEventListener('click', save);
   document.getElementById('excelBtn').addEventListener('click', () => editingId && (location.href = `/api/evaluations/${editingId}/excel`));
   document.getElementById('emailBtn').addEventListener('click', sendEmail);
-  document.getElementById('printBtn').addEventListener('click', () => window.print());
+  document.getElementById('printBtn').addEventListener('click', () => {
+    if (editingId) window.open(`/api/evaluations/${editingId}/print`, '_blank');
+    else toast('先に保存してから印刷してください', 'warning');
+  });
   document.getElementById('deleteBtn').addEventListener('click', deleteEval);
   document.getElementById('addCompanyBtn').addEventListener('click', () => quickAddCompany());
   document.getElementById('addConstructionBtn').addEventListener('click', () => quickAddConstruction());
