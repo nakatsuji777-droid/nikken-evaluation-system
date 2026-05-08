@@ -153,6 +153,7 @@ const collections = {
   constructions: new PgCollection('constructions'),
   constructionTypes: new PgCollection('construction_types'),
   users: new PgCollection('users'),
+  approvers: new PgCollection('approvers'),
   evaluations: new PgCollection('evaluations'),
   commentTemplates: new PgCollection('comment_templates'),
   activityLog: new PgCollection('activity_log'),

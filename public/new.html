@@ -69,7 +69,10 @@
       </div>
       <div class="form-row">
         <label>承認者（工事部長）</label>
-        <input type="text" id="approver">
+        <div class="input-with-action">
+          <select id="approver"></select>
+          <button class="btn small secondary" id="addApproverBtn" type="button" title="承認者を新規追加">＋</button>
+        </div>
       </div>
     </div>
   </div>
@@ -173,7 +176,7 @@
 
 <script src="/js/common.js"></script>
 <script>
-let companies = [], constructions = [], constructionTypes = [], users = [], commentTemplates = [];
+let companies = [], constructions = [], constructionTypes = [], users = [], approvers = [], commentTemplates = [];
 let editingId = null;
 let dirty = false;
 let autoSaveTimer = null;
@@ -206,6 +209,7 @@ async function init() {
   document.getElementById('addCompanyBtn').addEventListener('click', () => quickAddCompany());
   document.getElementById('addConstructionBtn').addEventListener('click', () => quickAddConstruction());
   document.getElementById('addTypeBtn').addEventListener('click', () => quickAddType());
+  document.getElementById('addApproverBtn').addEventListener('click', () => quickAddApprover());
 
   // 一括設定
   document.querySelectorAll('[data-bulk]').forEach(btn => {
@@ -267,17 +271,19 @@ async function init() {
 }
 
 async function reloadMasters() {
-  [companies, constructions, constructionTypes, users, commentTemplates] = await Promise.all([
+  [companies, constructions, constructionTypes, users, approvers, commentTemplates] = await Promise.all([
     api('GET', '/companies'),
     api('GET', '/constructions'),
     api('GET', '/construction-types'),
     api('GET', '/users'),
+    api('GET', '/approvers'),
     api('GET', '/comment-templates'),
   ]);
   fillSelectId('companyId', companies, '協力会社を選択');
   fillSelectId('constructionId', constructions, '工事を選択');
   fillSelectName('constructionType', constructionTypes, '（任意）工事種別を選択');
   fillSelectName('evaluator', users, '評価者を選択');
+  fillSelectName('approver', approvers, '承認者を選択');
 }
 
 function fillSelectId(id, items, placeholder) {
@@ -581,6 +587,14 @@ async function quickAddType() {
   await api('POST', '/construction-types', { name });
   await reloadMasters();
   document.getElementById('constructionType').value = name;
+  toast('追加しました：' + name, 'success');
+}
+async function quickAddApprover() {
+  const name = prompt('承認者名を入力してください');
+  if (!name) return;
+  await api('POST', '/approvers', { name, position: '工事部長', notes: '' });
+  await reloadMasters();
+  document.getElementById('approver').value = name;
   toast('追加しました：' + name, 'success');
 }
 

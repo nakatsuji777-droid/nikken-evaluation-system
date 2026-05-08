@@ -351,9 +351,50 @@ body.dark .alert.info { background: #1a2535; color: #6BA9E8; }
 
 /* ============ Print ============ */
 @media print {
-  .header, .nav, .btn-group, .toolbar, .pagination { display: none !important; }
-  .card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
-  body { background: white; color: black; }
+  @page { size: A4 portrait; margin: 6mm 8mm; }
+  * { box-sizing: border-box; }
+  html, body { background: white !important; color: black !important; font-size: 9px !important; margin: 0; padding: 0; width: 100%; line-height: 1.3 !important; }
+  .header, .nav, .btn-group, .toolbar, .pagination, #duplicateAlert,
+  .bulk-score, .template-pulldown, .input-with-action button,
+  #autoSaveIndicator, #statusDisplay, .fab,
+  .eval-item-view, .dark-toggle,
+  .card:has(#status) { display: none !important; }
+  .container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+  .section-title { font-size: 12px !important; margin: 2px 0 !important; padding: 0 !important; }
+  .card { box-shadow: none !important; border: 1px solid #aaa !important; margin-bottom: 3px !important; border-radius: 0 !important; page-break-inside: avoid; }
+  .card-header { padding: 2px 6px !important; font-size: 10px !important; min-height: auto !important; }
+  .card-body { padding: 3px 6px !important; }
+  .form-row { margin-bottom: 0 !important; padding: 1px 0 !important; display: flex !important; align-items: center !important; gap: 4px !important; }
+  .form-row label { font-size: 8px !important; min-width: 80px !important; max-width: 80px !important; flex-shrink: 0 !important; margin: 0 !important; }
+  .form-row input, .form-row select, .form-row textarea {
+    font-size: 9px !important; padding: 0 2px !important; border: none !important;
+    background: transparent !important; box-shadow: none !important; margin: 0 !important;
+    -webkit-appearance: none; appearance: none; height: auto !important; min-height: auto !important;
+  }
+  .form-row input[type="date"] { width: 100px !important; }
+  select { background-image: none !important; padding-right: 2px !important; }
+  textarea { resize: none !important; overflow: hidden !important; min-height: auto !important; }
+  .input-with-action { display: flex !important; flex: 1 !important; }
+  .input-with-action select { flex: 1 !important; }
+  .eval-item { padding: 1px 4px !important; margin-bottom: 0 !important; border: none !important; border-bottom: 1px dotted #ccc !important; border-radius: 0 !important; background: transparent !important;
+    display: flex !important; align-items: center !important; gap: 4px !important; flex-wrap: nowrap !important; }
+  .eval-item.completed { background: transparent !important; }
+  .eval-item-header { margin-bottom: 0 !important; gap: 3px !important; display: flex !important; align-items: center !important; flex-shrink: 0 !important; width: 130px !important; min-width: 130px !important; }
+  .eval-item-no { width: 13px !important; height: 13px !important; font-size: 7px !important; line-height: 13px !important; min-width: 13px !important; }
+  .eval-item-title { font-size: 8px !important; white-space: nowrap !important; }
+  .eval-item-grid { display: flex !important; align-items: center !important; gap: 4px !important; margin-top: 0 !important; flex: 1 !important; }
+  .score-buttons { gap: 1px !important; display: flex !important; flex-shrink: 0 !important; }
+  .score-btn { width: 16px !important; height: 16px !important; font-size: 8px !important; padding: 0 !important; min-width: 16px !important;
+    border: 1px solid #ccc !important; background: white !important; color: #bbb !important; border-radius: 2px !important; }
+  .score-btn.selected { background: #1F4E79 !important; color: white !important; border-color: #1F4E79 !important; }
+  .comment-area { flex: 1 !important; }
+  .comment-area textarea { font-size: 7px !important; line-height: 1.1 !important; height: 14px !important; max-height: 14px !important; padding: 1px 3px !important; border: 1px solid #ddd !important; }
+  .result-box { padding: 3px 8px !important; margin: 2px 0 !important; gap: 12px !important; }
+  .result-box .label { font-size: 7px !important; }
+  .result-box .value { font-size: 12px !important; }
+  .rank-circle { width: 28px !important; height: 28px !important; font-size: 14px !important; line-height: 28px !important; }
+  #reply { max-height: 24px !important; height: 24px !important; }
+  #overallGood, #overallImprove, #overallExpectation { height: 20px !important; max-height: 20px !important; font-size: 7px !important; }
 }
 
 /* ============ FAB ============ */

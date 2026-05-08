@@ -57,6 +57,7 @@ const masterMap = {
   'constructions': 'constructions',
   'construction-types': 'constructionTypes',
   'users': 'users',
+  'approvers': 'approvers',
   'comment-templates': 'commentTemplates',
 };
 
@@ -599,7 +600,7 @@ app.get('/api/backup/download', async (req, res) => {
       archive.finalize();
     } else {
       const allData = {};
-      for (const [key, col] of Object.entries({ companies: db.companies, constructions: db.constructions, constructionTypes: db.constructionTypes, users: db.users, evaluations: db.evaluations, commentTemplates: db.commentTemplates })) {
+      for (const [key, col] of Object.entries({ companies: db.companies, constructions: db.constructions, constructionTypes: db.constructionTypes, users: db.users, approvers: db.approvers, evaluations: db.evaluations, commentTemplates: db.commentTemplates })) {
         allData[key] = await col.all(true);
       }
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -661,6 +662,13 @@ async function seedIfEmpty() {
       loginId: '', role: '管理者', notes: ''
     }]);
     console.log('  Seeded user master');
+  }
+
+  if ((await db.approvers.count()) === 0) {
+    await db.approvers.bulkInsert([
+      { name: '高橋 孝雄', position: '工事部長', notes: '' },
+    ]);
+    console.log('  Seeded approver master');
   }
 
   if ((await db.commentTemplates.count()) === 0) {
@@ -746,9 +754,9 @@ async function start() {
   if (db.initSchema) {
     console.log('Initializing PostgreSQL schema...');
     await db.initSchema();
-    console.log('Seeding data if needed...');
-    await seedIfEmpty();
   }
+  console.log('Seeding data if needed...');
+  await seedIfEmpty();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n╔════════════════════════════════════════════╗`);

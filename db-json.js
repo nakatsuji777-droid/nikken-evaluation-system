@@ -105,6 +105,7 @@ const collections = {
   constructions: new Collection('constructions'),
   constructionTypes: new Collection('construction_types'),
   users: new Collection('users'),
+  approvers: new Collection('approvers'),
   evaluations: new Collection('evaluations'),
   commentTemplates: new Collection('comment_templates'),
   activityLog: new Collection('activity_log'),
