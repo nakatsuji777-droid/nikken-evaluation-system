@@ -8,6 +8,13 @@ const { parse: csvParse } = require('csv-parse/sync');
 const db = require('./db');
 
 const app = express();
+
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', new Date().toISOString(), err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', new Date().toISOString(), reason);
+});
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '50mb' }));
@@ -426,7 +433,7 @@ async function buildExcel(evaluation) {
     const r = 15 + i;
     const score = evaluation[item[3]] ? Number(evaluation[item[3]]) : '';
     const comment = evaluation[item[4]] || '';
-    setRow(r, [item[0], item[1], item[2], score, comment], { border: true, height: 24, fill: i % 2 === 0 ? lightFill : undefined, align: wrapAlign });
+    setRow(r, [item[0], item[1], item[2], score, comment], { border: true, height: 30, fill: i % 2 === 0 ? lightFill : undefined, align: wrapAlign });
     ws.getCell(`A${r}`).alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getCell(`A${r}`).font = { ...baseFont, size: 9, color: { argb: 'FF666666' } };
     ws.getCell(`B${r}`).font = { ...boldFont, size: 10 };
@@ -453,7 +460,7 @@ async function buildExcel(evaluation) {
   ws.getCell('B24').value = `${total} / 35`; ws.getCell('B24').font = { ...boldFont, size: 13 }; ws.getCell('B24').alignment = { horizontal: 'center', vertical: 'middle' };
   ws.getCell('C24').value = '平均点'; ws.getCell('C24').font = { ...boldFont, size: 9 };
   ws.getCell('D24').value = avg; ws.getCell('D24').font = { bold: true, size: 14, name: 'Meiryo UI', color: { argb: rankColor } }; ws.getCell('D24').alignment = { horizontal: 'center', vertical: 'middle' };
-  ws.getCell('E24').value = `総合ランク：${rank}`; ws.getCell('E24').font = { bold: true, size: 18, name: 'Meiryo UI', color: { argb: rankColor } }; ws.getCell('E24').alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getCell('E24').value = `総合評価：${rank}`; ws.getCell('E24').font = { bold: true, size: 18, name: 'Meiryo UI', color: { argb: rankColor } }; ws.getCell('E24').alignment = { horizontal: 'center', vertical: 'middle' };
 
   // Row 25: Criteria note
   mergeFull(25);
@@ -474,31 +481,20 @@ async function buildExcel(evaluation) {
   ];
   commentRows.forEach((row, i) => {
     const r = 28 + i;
-    setRow(r, [row[0], '', row[1]], { border: true, height: 32, align: wrapAlign });
+    setRow(r, [row[0], '', row[1]], { border: true, height: 30, align: wrapAlign });
     ws.getCell(`A${r}`).font = { ...boldFont, size: 9 };
-    ws.getCell(`C${r}`).font = { ...baseFont, size: 10 };
+    ws.getCell(`C${r}`).font = { ...baseFont, size: 9 };
     mergeAB(r); mergeCE(r);
   });
 
   // Row 31: Spacer
-  setRow(31, [''], { height: 6 });
+  setRow(31, [''], { height: 10 });
 
-  // Row 32: Section header
+  // Row 32: Footer
   mergeFull(32);
-  setRow(32, ['  返信欄（協力会社様からのご意見・ご感想）'], { font: headerFont, fill: subHeaderFill, height: 22, border: true });
+  setRow(32, ['ニッケン建設株式会社'], { font: { ...baseFont, size: 9, color: { argb: 'FF999999' } }, height: 16, align: { horizontal: 'center', vertical: 'middle' } });
 
-  // Row 33: Reply
-  mergeFull(33);
-  setRow(33, [evaluation.reply || ''], { border: true, height: 56, align: wrapAlign });
-
-  // Row 34: Spacer
-  setRow(34, [''], { height: 10 });
-
-  // Row 35: Footer
-  mergeFull(35);
-  setRow(35, ['ニッケン建設株式会社'], { font: { ...baseFont, size: 9, color: { argb: 'FF999999' } }, height: 16, align: { horizontal: 'center', vertical: 'middle' } });
-
-  ws.pageSetup.printArea = 'A1:E35';
+  ws.pageSetup.printArea = 'A1:E32';
 
   return { wb, filename: `評価シート_${(company?.name || 'unknown')}_${dt.toISOString().slice(0, 10)}.xlsx` };
 }
@@ -514,6 +510,51 @@ app.get('/api/evaluations/:id/excel', async (req, res) => {
     res.end();
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// ============ Radar Chart SVG ============
+function buildRadarSvg(e) {
+  const labels = ['予算','品質','工程','安全','コミュ','書類','提案'];
+  const keys = ['scoreBudget','scoreQuality','scoreSchedule','scoreSafety','scoreCommunication','scoreDocument','scoreProposal'];
+  const scores = keys.map(k => Number(e[k]) || 0);
+  const n = 7;
+  const cx = 100, cy = 95, maxR = 70;
+  const angleOff = -Math.PI / 2;
+
+  function pt(i, r) {
+    const a = angleOff + (2 * Math.PI * i) / n;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  }
+
+  // grid lines (1-5)
+  let grid = '';
+  for (let lv = 1; lv <= 5; lv++) {
+    const r = (lv / 5) * maxR;
+    const pts = Array.from({length: n}, (_, i) => pt(i, r).join(',')).join(' ');
+    grid += `<polygon points="${pts}" fill="none" stroke="#ccc" stroke-width="${lv===5?1.2:0.5}"/>`;
+  }
+
+  // axis lines + labels
+  let axes = '';
+  labels.forEach((lb, i) => {
+    const [x2, y2] = pt(i, maxR);
+    axes += `<line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}" stroke="#ddd" stroke-width="0.5"/>`;
+    const [lx, ly] = pt(i, maxR + 14);
+    axes += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#333">${lb}</text>`;
+  });
+
+  // data polygon
+  const dataPts = scores.map((s, i) => pt(i, (s / 5) * maxR).join(',')).join(' ');
+  const dataShape = `<polygon points="${dataPts}" fill="rgba(30,80,140,0.25)" stroke="#1B4F72" stroke-width="1.8"/>`;
+
+  // data dots
+  let dots = '';
+  scores.forEach((s, i) => {
+    const [dx, dy] = pt(i, (s / 5) * maxR);
+    dots += `<circle cx="${dx}" cy="${dy}" r="3" fill="#1B4F72"/>`;
+  });
+
+  return `<svg width="200" height="195" viewBox="0 0 200 195" xmlns="http://www.w3.org/2000/svg">${grid}${axes}${dataShape}${dots}</svg>`;
+}
 
 // ============ Print HTML ============
 app.get('/api/evaluations/:id/print', async (req, res) => {
@@ -564,8 +605,10 @@ th { background: #D6E4F0; font-size: 9px; text-align: center; }
 .criteria { font-size: 8px; color: #888; font-style: italic; padding: 3px 4px; }
 .comment td:first-child { font-weight: bold; font-size: 9px; width: 140px; }
 .comment td:last-child { font-size: 10px; }
-.reply { min-height: 50px; }
 .footer { text-align: center; color: #999; font-size: 9px; padding-top: 10px; }
+.radar-section { display: flex; align-items: flex-start; gap: 12px; margin-top: 6px; }
+.radar-section table { flex: 1; }
+.radar-chart { flex-shrink: 0; }
 @media screen { body { max-width: 210mm; margin: 0 auto; padding: 10px; background: #f5f5f5; }
   .page { background: #fff; padding: 16mm; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
   .no-print { text-align: center; padding: 12px; }
@@ -588,20 +631,21 @@ th { background: #D6E4F0; font-size: 9px; text-align: center; }
 <table><thead><tr><th>No</th><th>評価項目</th><th>評価の視点</th><th>点数</th><th>コメント</th></tr></thead>
 <tbody>${scoreRows}</tbody></table>
 <div class="section">総合評価</div>
-<table><tr class="rank-row">
+<div class="radar-section">
+<table style="width:auto;flex:1"><tr class="rank-row">
 <td style="font-weight:bold;font-size:9px;width:60px">合計点</td>
 <td style="text-align:center;font-size:14px;font-weight:bold;width:80px">${e.total||''} / 35</td>
 <td style="font-weight:bold;font-size:9px;width:60px">平均点</td>
 <td style="text-align:center;font-size:14px;font-weight:bold;color:${rankColor};width:60px">${e.average||''}</td>
-<td style="text-align:center;font-size:20px;font-weight:bold;color:${rankColor}">総合ランク：${e.rank||''}</td>
+<td style="text-align:center;font-size:20px;font-weight:bold;color:${rankColor}">総合評価：${e.rank||''}</td>
 </tr></table>
+<div class="radar-chart">${buildRadarSvg(e)}</div>
+</div>
 <div class="criteria">判定基準 ― S:平均5.0(全満点)　A:4.2以上　B:3.4以上　C:2.6以上　D:2.6未満　※1がある場合→D　2がある場合→C以下</div>
 <div class="section sub">総評（現場責任者コメント）</div>
 <table class="comment"><tr><td>良かった点</td><td>${esc(e.overallGood)}</td></tr>
 <tr><td>改善をお願いしたい点</td><td>${esc(e.overallImprove)}</td></tr>
 <tr><td>次回への期待・要望</td><td>${esc(e.overallExpectation)}</td></tr></table>
-<div class="section sub">返信欄（協力会社様からのご意見・ご感想）</div>
-<table><tr><td class="reply">${esc(e.reply)}</td></tr></table>
 <div class="footer">ニッケン建設株式会社</div>
 </div></body></html>`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

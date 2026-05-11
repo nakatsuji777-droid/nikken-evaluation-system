@@ -112,7 +112,7 @@ const SCHEMAS = {
       { key: 'phone', label: '電話番号', type: 'tel', width: 130 },
       { key: 'email', label: 'メール', type: 'email', width: 200 },
       { key: 'address', label: '住所', type: 'text', width: 200 },
-      { key: 'mainType', label: '主要工種', type: 'text', width: 100 },
+      { key: 'constructionTypes', label: '対応工事種別', type: 'text', width: 200, placeholder: '例：鉄筋,型枠,鉄骨（カンマ区切り）' },
       { key: 'notes', label: '備考', type: 'text', width: 150 },
     ],
     title: '協力会社マスタ'
@@ -292,7 +292,7 @@ function showModal(schema, item, onSave) {
           <label>${f.label}${f.required ? ' <span style="color:red">*</span>' : ''}</label>
           ${f.type === 'select'
               ? `<select name="${f.key}">${f.options.map(o => `<option value="${o}" ${item[f.key]===o?'selected':''}>${f.labels?.[o] || o}</option>`).join('')}</select>`
-              : `<input type="${f.type}" name="${f.key}" value="${escapeHtml(item[f.key] || '')}" ${f.required ? 'required' : ''}>`}
+              : `<input type="${f.type}" name="${f.key}" value="${escapeHtml(item[f.key] || '')}" ${f.required ? 'required' : ''} ${f.placeholder ? 'placeholder="'+f.placeholder+'"' : ''}>`}
         </div>
       `).join('')}
       <div class="btn-group" style="margin-top:16px;justify-content:flex-end">

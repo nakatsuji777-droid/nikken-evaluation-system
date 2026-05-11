@@ -39,24 +39,25 @@
         <input type="date" id="evaluationDate">
       </div>
       <div class="form-row">
+        <label>工事種別</label>
+        <div class="input-with-action">
+          <select id="constructionType"></select>
+          <button class="btn small secondary" id="addTypeBtn" type="button" title="工事種別を新規追加">＋</button>
+        </div>
+      </div>
+      <div class="form-row">
         <label>協力会社 <span style="color:red">*</span></label>
         <div class="input-with-action">
           <select id="companyId" required></select>
           <button class="btn small secondary" id="addCompanyBtn" type="button" title="協力会社を新規追加">＋</button>
         </div>
+        <div id="companyFilterHint" class="muted" style="font-size:11px;margin-top:2px"></div>
       </div>
       <div class="form-row">
         <label>工事 <span style="color:red">*</span></label>
         <div class="input-with-action">
           <select id="constructionId" required></select>
           <button class="btn small secondary" id="addConstructionBtn" type="button" title="工事を新規追加">＋</button>
-        </div>
-      </div>
-      <div class="form-row">
-        <label>工事種別</label>
-        <div class="input-with-action">
-          <select id="constructionType"></select>
-          <button class="btn small secondary" id="addTypeBtn" type="button" title="工事種別を新規追加">＋</button>
         </div>
       </div>
       <div class="form-row">
@@ -139,14 +140,6 @@
     </div>
   </div>
 
-  <!-- 返信欄 -->
-  <div class="card">
-    <div class="card-header"><span>■ 返信欄（協力会社様からのご意見）</span></div>
-    <div class="card-body">
-      <textarea id="reply" rows="3" placeholder="協力会社様からのご意見・ご感想をいただいた際に記入"></textarea>
-    </div>
-  </div>
-
   <!-- ステータス -->
   <div class="card">
     <div class="card-header"><span>■ ステータス管理</span></div>
@@ -219,6 +212,12 @@ async function init() {
     btn.addEventListener('click', () => bulkSetScore(Number(btn.dataset.bulk)));
   });
 
+  // 工事種別変更時に協力会社を絞り込み
+  document.getElementById('constructionType').addEventListener('change', () => {
+    filterCompaniesByType();
+    markDirty();
+  });
+
   // 工事選択時に工期を自動補完
   document.getElementById('constructionId').addEventListener('change', () => {
     const id = Number(document.getElementById('constructionId').value);
@@ -231,7 +230,7 @@ async function init() {
   document.getElementById('companyId').addEventListener('change', checkDuplicate);
 
   // 任意フィールド変更でdirty
-  ['evaluationDate', 'period', 'approver', 'overallGood', 'overallImprove', 'overallExpectation', 'reply', 'status'].forEach(id => {
+  ['evaluationDate', 'period', 'approver', 'overallGood', 'overallImprove', 'overallExpectation', 'status'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('input', () => { markDirty(); });
     el.addEventListener('change', () => { markDirty(); });
@@ -301,6 +300,33 @@ function fillSelectName(id, items, placeholder) {
   const cur = sel.value;
   sel.innerHTML = `<option value="">${placeholder}</option>` +
     items.map(i => `<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+
+function filterCompaniesByType() {
+  const type = document.getElementById('constructionType').value;
+  const sel = document.getElementById('companyId');
+  const cur = sel.value;
+  const hint = document.getElementById('companyFilterHint');
+  if (!type) {
+    fillSelectId('companyId', companies, '協力会社を選択');
+    hint.textContent = '';
+  } else {
+    const filtered = companies.filter(c => {
+      if (!c.constructionTypes) return false;
+      const types = Array.isArray(c.constructionTypes) ? c.constructionTypes : String(c.constructionTypes).split(',').map(s => s.trim());
+      return types.includes(type);
+    });
+    const unmatched = companies.filter(c => !filtered.includes(c));
+    sel.innerHTML = `<option value="">協力会社を選択</option>` +
+      filtered.map(i => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('') +
+      (unmatched.length > 0 ? `<option disabled>── その他 ──</option>` +
+        unmatched.map(i => `<option value="${i.id}" style="color:#999">${escapeHtml(i.name)}</option>`).join('') : '');
+    hint.textContent = filtered.length > 0 ? `${type} に対応：${filtered.length}社` : '該当なし（全社表示中）';
+    if (!filtered.find(c => String(c.id) === String(cur)) && unmatched.find(c => String(c.id) === String(cur))) {
+      sel.value = cur;
+    }
+  }
   if (cur) sel.value = cur;
 }
 
@@ -459,7 +485,6 @@ function restoreFromObject(e) {
   document.getElementById('overallGood').value = e.overallGood || '';
   document.getElementById('overallImprove').value = e.overallImprove || '';
   document.getElementById('overallExpectation').value = e.overallExpectation || '';
-  document.getElementById('reply').value = e.reply || '';
   recalc();
   checkDuplicate();
   dirty = false;
@@ -478,7 +503,6 @@ function collectData() {
     overallGood: document.getElementById('overallGood').value,
     overallImprove: document.getElementById('overallImprove').value,
     overallExpectation: document.getElementById('overallExpectation').value,
-    reply: document.getElementById('reply').value,
   };
   evalItemsConfig.forEach(item => {
     const el = document.querySelector(`.eval-item[data-key="${item.key}"]`);
